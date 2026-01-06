@@ -3,18 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ext Engine</title>
+    <title>SStudio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
         
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* Layout */
         .app-container { height: 100vh; display: flex; flex-direction: column; }
         .main-content { flex: 1; display: grid; grid-template-columns: 1fr 450px; gap: 1rem; padding: 1rem; overflow: hidden; }
         
-        /* Editor Styling */
         .editor-container { 
             position: relative; 
             background: #1e293b; 
@@ -25,54 +23,22 @@
             flex-direction: column; 
         }
         
-        #editor-wrapper { 
-            position: relative; 
-            flex: 1; 
-            overflow: hidden;
-            background: #1e293b;
-        }
+        #editor-wrapper { position: relative; flex: 1; overflow: hidden; background: #1e293b; }
 
         #highlighting, #editor {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            padding: 24px;
-            margin: 0;
-            border: none;
+            top: 0; left: 0; width: 100%; height: 100%;
+            padding: 24px; margin: 0; border: none;
             font-family: 'Fira Code', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            white-space: pre; 
-            word-wrap: normal;
-            tab-size: 4;
-            box-sizing: border-box;
-            outline: none;
+            font-size: 14px; line-height: 1.6;
+            white-space: pre; word-wrap: normal;
+            tab-size: 4; box-sizing: border-box; outline: none;
         }
 
-        #highlighting {
-            pointer-events: none;
-            color: transparent; 
-            z-index: 1;
-            overflow: hidden; 
-            user-select: none;
-        }
+        #highlighting { pointer-events: none; color: transparent; z-index: 1; overflow: hidden; user-select: none; }
+        #editor { background: transparent; color: #ffffff; caret-color: #ffffff; resize: none; z-index: 2; overflow: auto; }
+        #editor::selection { background: rgba(255, 255, 255, 0.2); }
 
-        #editor {
-            background: transparent;
-            color: #ef4444; 
-            caret-color: #ffffff; 
-            resize: none;
-            z-index: 2;
-            overflow: auto;
-        }
-
-        #editor::selection {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Syntax Highlighting Colors */
         .token-keyword { color: #8b5cf6; font-weight: bold; }
         .token-string { color: #10b981; }
         .token-number { color: #f59e0b; }
@@ -80,15 +46,12 @@
         .token-symbol { color: #94a3b8; }
         .token-math { color: #ec4899; }
 
-        /* UI Elements */
         .canvas-container { background: #000; border-radius: 12px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); }
         canvas { width: 100%; height: auto; aspect-ratio: 4/3; image-rendering: pixelated; }
 
         #editor::-webkit-scrollbar { width: 10px; height: 10px; }
         #editor::-webkit-scrollbar-track { background: #1e293b; }
         #editor::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
-        
-        .doc-mode #editor { color: #94a3b8 !important; }
     </style>
 </head>
 <body>
@@ -96,25 +59,21 @@
     <div class="app-container">
         <header class="h-16 border-b border-slate-800 bg-slate-900/50 flex items-center justify-between px-6 backdrop-blur-md">
             <div class="flex items-center gap-4">
-                <div class="bg-blue-600 p-2 rounded-lg">
+                <div class="bg-indigo-600 p-2 rounded-lg">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">Ext Engine</h1>
-                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Engine v2.9.3 (Movement Fix)</p>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">SStudio</h1>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">S# Language Studio v1.6</p>
                 </div>
             </div>
             
             <div class="flex items-center gap-3">
-                <button id="doc-btn" onclick="toggleDocs()" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-full font-bold text-xs transition-all active:scale-95 border border-slate-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                    <span id="doc-text">DICTIONARY</span>
-                </button>
                 <div id="status-dot" class="h-3 w-3 rounded-full bg-slate-600 transition-colors duration-300"></div>
-                <button onclick="runCode()" class="group flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-full font-bold text-sm transition-all shadow-lg hover:shadow-emerald-900/20 active:scale-95">
-                    <span>RUN PROJECT</span>
+                <button onclick="runCode()" class="group flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-full font-bold text-sm transition-all shadow-lg hover:shadow-indigo-900/20 active:scale-95">
+                    <span>BUILD & RUN</span>
                 </button>
             </div>
         </header>
@@ -122,30 +81,45 @@
         <div class="main-content">
             <div class="editor-container">
                 <div class="bg-slate-800/50 px-4 py-2 flex items-center justify-between border-b border-slate-700">
-                    <span id="file-label" class="text-xs font-bold text-slate-400 tracking-tight">MAIN_SCRIPT.EC</span>
+                    <span id="file-label" class="text-xs font-bold text-slate-400 tracking-tight">APPLICATION.S#</span>
                 </div>
                 <div id="editor-wrapper">
                     <div id="highlighting" aria-hidden="true"></div>
-                    <textarea id="editor" oninput="updateEditor()" onscroll="syncScroll()" spellcheck="false" autocomplete="off">--// Create World //--
-create:("box") in "canvas" as "sky",
-    properties = color("#1e293b"); size(800, 600); position(0, 0); anchored.
+                    <textarea id="editor" oninput="updateEditor()" onscroll="syncScroll()" spellcheck="false" autocomplete="off">
+--// Example Script for top-down movement //--
+print("Hello World!")
 
-create:("box") in "canvas" as "floor",
-    properties = color("#10b981"); size(800, 100); position(0, 500); anchored.
+--// Creating Hero and Sky //--
+new:Box("sky") in "canvas"
+sky.Color = "#1e293b"
+sky.Size = 800;600
+sky.Position = 0;0
 
---// Variables //--
-set speed = 5.
-set mult = 1.2.
+new:Box("hero") in "canvas"
+hero.Color = "#6366f1"
+hero.Size = 40;40
+hero.Position = 380;460
 
---// Player //--
-create:("box") in "canvas" as "hero",
-    properties = color("#6366f1"); size(40, 40); position(380, 460).
+--// Speed Variable //--
+new:Variable("speed") = (5)
 
+--// Movement Script//--
 Forever,
-    If key(D) pressed, hero.X =+ math.round(speed * mult).
-    If key(A) pressed, hero.X =- math.round(speed * mult).
-    If key(W) pressed, hero.Y =- speed.
-    If key(S) pressed, hero.Y =+ speed.</textarea>
+    If key(W) pressed,
+        hero.Y =- speed
+        print("Moving Up")
+    .
+    If key(S) pressed,
+        hero.Y =+ speed
+        print("Moving Down")
+    .
+    If key(A) pressed,
+        hero.X =- speed
+    .
+    If key(D) pressed,
+        hero.X =+ speed
+    .
+.</textarea>
                 </div>
             </div>
 
@@ -156,7 +130,7 @@ Forever,
 
                 <div class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
                     <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
-                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Debug Console</span>
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">S# Runtime Output</span>
                         <button onclick="clearConsole()" class="text-[10px] text-slate-500 hover:text-white transition-colors">CLEAR</button>
                     </div>
                     <div id="console" class="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-[11px] leading-relaxed">
@@ -173,70 +147,22 @@ Forever,
         const highlighting = document.getElementById('highlighting');
         const consoleEl = document.getElementById('console');
         const statusDot = document.getElementById('status-dot');
-        const fileLabel = document.getElementById('file-label');
-        const docText = document.getElementById('doc-text');
         const keys = {};
 
         let objects = [];
         let variables = {};
         let running = false;
         let animationFrame;
-        let savedCode = "";
-        let isDocMode = false;
-
-        const DICTIONARY_TEXT = `--// EASYCODE DICTIONARY //--
-
-VARIABLES:
-set [name] = [val].  - Save a value.
-
-MATH OPS:
-=+ , =- , =* , =/  - Change property.
-math.round(expr)    - Round numbers.
-
-KEYWORDS:
-create, in, as, properties, Forever, If, key, pressed, set.
-
-INPUTS:
-W, A, S, D, SPACE, ENTER.
-
-EXAMPLE:
-set jump = 10.
-create:("box") in "canvas" as "p1", properties = color("#f00").
-Forever,
-    If key(W) pressed, p1.Y =- jump.
-.`;
-
-        function toggleDocs() {
-            if (!isDocMode) {
-                savedCode = editor.value;
-                editor.value = DICTIONARY_TEXT;
-                editor.readOnly = true;
-                fileLabel.textContent = "DICTIONARY.MD";
-                docText.textContent = "CLOSE DICT";
-                document.body.classList.add('doc-mode');
-                isDocMode = true;
-            } else {
-                editor.value = savedCode;
-                editor.readOnly = false;
-                fileLabel.textContent = "MAIN_SCRIPT.EC";
-                docText.textContent = "DICTIONARY";
-                document.body.classList.remove('doc-mode');
-                isDocMode = false;
-            }
-            updateEditor();
-        }
 
         function updateEditor() {
             let text = editor.value;
             let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const keywords = /\b(create|in|as|properties|If|key|pressed|Forever|set)\b/gi;
-            const math = /\b(math\.round|math\.floor|math\.ceil)\b/g;
-            html = html.replace(keywords, '<span class="token-keyword">$1</span>');
-            html = html.replace(math, '<span class="token-math">$1</span>');
-            html = html.replace(/"([^"]*)"/g, '<span class="token-string">"$1"</span>');
-            html = html.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="token-number">$1</span>');
-            html = html.replace(/(--\/\/.*?\/\/--)/g, '<span class="token-comment">$1</span>');
-            html = html.replace(/[:.,();=]/g, '<span class="token-symbol">$&</span>');
+            html = html.replace(/\b(new|in|If|key|pressed|Forever|print)\b/gi, '<span class="token-keyword">$1</span>')
+                       .replace(/\b(math\.round)\b/g, '<span class="token-math">$1</span>')
+                       .replace(/"([^"]*)"/g, '<span class="token-string">"$1"</span>')
+                       .replace(/\b(\d+(\.\d+)?)\b/g, '<span class="token-number">$1</span>')
+                       .replace(/(--\/\/.*?\/\/--)/g, '<span class="token-comment">$1</span>')
+                       .replace(/[:.,();=]/g, '<span class="token-symbol">$&</span>');
             highlighting.innerHTML = html + (text.endsWith('\n') ? ' ' : '');
             syncScroll();
         }
@@ -246,25 +172,13 @@ Forever,
             highlighting.scrollLeft = editor.scrollLeft;
         }
 
-        editor.addEventListener('keydown', function(e) {
-            if (isDocMode) return;
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                let start = this.selectionStart;
-                let end = this.selectionEnd;
-                this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
-                this.selectionStart = this.selectionEnd = start + 4;
-                updateEditor();
-            }
-        });
-
-        window.addEventListener('keydown', (e) => keys[e.key.toUpperCase()] = true);
-        window.addEventListener('keyup', (e) => keys[e.key.toUpperCase()] = false);
+        window.addEventListener('keydown', (e) => { keys[e.key.toUpperCase()] = true; });
+        window.addEventListener('keyup', (e) => { keys[e.key.toUpperCase()] = false; });
 
         function log(msg, type = 'info') {
             const div = document.createElement('div');
-            div.className = type === 'error' ? "text-red-400" : "text-emerald-400";
-            div.textContent = `> ${msg}`;
+            div.className = type === 'error' ? "text-red-400" : (type === 'print' ? "text-slate-200 border-l-2 border-indigo-500 pl-2" : "text-indigo-400 opacity-60");
+            div.textContent = type === 'print' ? msg : `[S#] > ${msg}`;
             consoleEl.prepend(div);
         }
 
@@ -272,30 +186,35 @@ Forever,
 
         function lex(input) {
             const tokens = [];
+            const lines = input.split('\n');
             const patterns = [
                 { type: 'COMMENT', reg: /^--\/\/.*?\/\/--/ },
-                { type: 'KEYWORD', reg: /^(create|in|as|properties|If|key|pressed|Forever|set|math\.round)/i },
+                { type: 'KEYWORD', reg: /^(new|in|If|key|pressed|Forever|math\.round|print)/i },
                 { type: 'OPERATOR', reg: /^(=[+\-*/]|==|=|[+\-*/])/ },
                 { type: 'SYMBOL', reg: /^[:.,();]/ },
                 { type: 'STRING', reg: /^"([^"]*)"/ },
-                { type: 'NUMBER', reg: /^\d+(\.\d+)?/ },
+                { type: 'NUMBER', reg: /^-?\d+(\.\d+)?/ },
                 { type: 'IDENTIFIER', reg: /^[a-zA-Z_][a-zA-Z0-9_.]*/ },
                 { type: 'WHITESPACE', reg: /^\s+/ }
             ];
-            let pos = 0;
-            while (pos < input.length) {
-                let match = null;
-                for (let p of patterns) {
-                    const res = input.slice(pos).match(p.reg);
-                    if (res) {
-                        if (p.type !== 'WHITESPACE' && p.type !== 'COMMENT') {
-                            tokens.push({ type: p.type, value: res[0], content: res[1] || res[0] });
+
+            lines.forEach((line, lineIdx) => {
+                let pos = 0;
+                while (pos < line.length) {
+                    let match = false;
+                    for (let p of patterns) {
+                        const res = line.slice(pos).match(p.reg);
+                        if (res) {
+                            if (p.type !== 'WHITESPACE' && p.type !== 'COMMENT') {
+                                tokens.push({ type: p.type, value: res[0], content: res[1] || res[0], line: lineIdx });
+                            }
+                            pos += res[0].length; match = true; break;
                         }
-                        pos += res[0].length; match = true; break;
                     }
+                    if (!match) { pos++; }
                 }
-                if (!match) return null;
-            }
+                tokens.push({ type: 'NEWLINE', value: '\n', line: lineIdx });
+            });
             return tokens;
         }
 
@@ -305,160 +224,189 @@ Forever,
             consume() { return this.tokens[this.pos++]; }
             
             evaluateExpression(tokens) {
-                let str = tokens
-                    .filter(t => t.value !== '.') // Filter out line ending dots
-                    .map(t => {
-                        if (t.type === 'IDENTIFIER' && variables[t.value] !== undefined) return variables[t.value];
-                        if (t.value === 'math.round') return 'Math.round';
-                        return t.value;
-                    }).join('');
-                try { 
-                    const result = eval(str);
-                    return isNaN(result) ? 0 : result;
-                } catch(e) { return 0; }
+                if (!tokens || tokens.length === 0) return 0;
+                let str = tokens.map(t => {
+                    if (t.type === 'IDENTIFIER' && variables[t.value] !== undefined) return variables[t.value];
+                    if (t.value === 'math.round') return 'Math.round';
+                    return t.value;
+                }).join('');
+                try { return eval(str) || 0; } catch { return 0; }
             }
 
             run() {
-                objects = [];
-                variables = {};
-                try {
-                    while (this.pos < this.tokens.length) {
-                        const t = this.peek();
-                        if (!t) break;
-                        const val = t.value.toLowerCase();
-                        if (val === 'create') this.handleCreate();
-                        else if (val === 'forever') this.handleForever();
-                        else if (val === 'set') this.handleSet();
-                        else this.pos++;
-                    }
-                    return true;
-                } catch (e) { log(e.message, 'error'); return false; }
+                objects = []; variables = {};
+                while (this.pos < this.tokens.length) {
+                    const t = this.peek();
+                    if (!t) break;
+                    const val = t.value.toLowerCase();
+                    if (val === 'new') this.handleNew(this);
+                    else if (val === 'forever') this.handleForever();
+                    else if (val === 'print') this.handlePrint(this);
+                    else if (t.type === 'IDENTIFIER' && t.value.includes('.')) this.handleProp(this);
+                    else this.pos++;
+                }
+                return true;
             }
 
-            handleSet() {
-                this.consume(); 
-                let nameToken = this.consume();
-                if (!nameToken) return;
-                let name = nameToken.value;
-                this.consume(); // =
-                let exprTokens = [];
-                while (this.peek() && this.peek().value !== '.') exprTokens.push(this.consume());
-                variables[name] = this.evaluateExpression(exprTokens);
-                if (this.peek()) this.consume();
-            }
-
-            handleCreate() {
-                this.consume(); // create
-                this.consume(); // :
-                this.consume(); // (
-                let typeToken = this.consume();
-                this.consume(); // )
-                let obj = { type: typeToken.content, x: 0, y: 0, w: 50, h: 50, color: 'white', name: 'obj', anchored: false };
+            handlePrint(scope) {
+                scope.consume(); // print
+                if (scope.peek()?.value === '(') scope.consume();
+                let content = "";
+                let t = scope.peek();
+                if (t?.type === 'STRING') content = scope.consume().content;
+                else if (t && variables[t.value] !== undefined) content = variables[scope.consume().value];
+                else if (t && t.type !== 'SYMBOL' && t.type !== 'NEWLINE') content = scope.consume().value;
                 
-                while (this.peek() && this.peek().value !== '.') {
-                    let t = this.peek();
-                    if (t.value === 'as') {
-                        this.consume();
-                        obj.name = this.consume().content;
-                    } else if (t.value === 'properties') {
-                        this.consume(); // properties
-                        this.consume(); // =
-                        this.parseProperties(obj);
-                    } else if (t.value === 'in') {
-                        this.consume();
-                        this.consume(); // skip container name
-                    } else {
-                        this.consume();
+                if (scope.peek()?.value === ')') scope.consume();
+                // Consume newline to move to next instruction
+                if (scope.peek()?.type === 'NEWLINE') scope.consume();
+                log(content, 'print');
+            }
+
+            handleNew(scope) {
+                scope.consume(); // new
+                if (scope.peek()?.value === ':') scope.consume();
+                let typeToken = scope.consume();
+                if (!typeToken) return;
+                let type = typeToken.value.toLowerCase();
+                if (scope.peek()?.value === '(') scope.consume();
+                let nameToken = scope.consume();
+                let name = nameToken ? nameToken.content : "unknown";
+                if (scope.peek()?.value === ')') scope.consume();
+                
+                if (type === 'variable') {
+                    if (scope.peek()?.value === '=') scope.consume();
+                    if (scope.peek()?.value === '(') scope.consume();
+                    let expr = []; while(scope.peek() && scope.peek().value !== ')' && scope.peek().type !== 'NEWLINE') expr.push(scope.consume());
+                    if (scope.peek()?.value === ')') scope.consume(); 
+                    variables[name] = this.evaluateExpression(expr);
+                } else if (type === 'box') {
+                    if (!objects.find(o => o.name === name)) {
+                        objects.push({ type: 'box', x: 0, y: 0, w: 50, h: 50, color: 'white', name: name });
                     }
                 }
-                if (this.peek() && this.peek().value === '.') this.consume();
-                objects.push(obj);
             }
 
-            parseProperties(obj) {
-                while (this.peek() && this.peek().value !== '.' && this.peek().value !== ',') {
-                    let t = this.consume();
-                    let prop = t.value;
-                    if (this.peek() && this.peek().value === '(') {
-                        this.consume(); let v = [];
-                        while(this.peek() && this.peek().value !== ')') {
-                            v.push(this.consume().value.replace(/"/g, ''));
-                            if(this.peek() && this.peek().value === ',') this.consume();
+            handleProp(scope) {
+                let full = scope.consume().value;
+                let [name, prop] = full.split('.');
+                let opToken = scope.consume();
+                
+                let valTokens = []; 
+                while(scope.peek() && scope.peek().type !== 'NEWLINE' && scope.peek().value !== '.') {
+                    valTokens.push(scope.consume());
+                }
+                // Skip newline if it exists
+                if(scope.peek()?.type === 'NEWLINE') scope.consume();
+                
+                let obj = objects.find(o => o.name === name);
+                if(!obj) return;
+
+                let p = prop.toLowerCase();
+                let op = opToken ? opToken.value : '=';
+
+                if(p === 'color') {
+                    obj.color = valTokens.map(t => t.value).join('').replace(/"/g, '');
+                } else if(p === 'position' || p === 'size' || p === 'x' || p === 'y') {
+                    if (p === 'x' || p === 'y') {
+                        let val = this.evaluateExpression(valTokens);
+                        if (op === '=+') obj[p] += val;
+                        else if (op === '=-') obj[p] -= val;
+                        else obj[p] = val;
+                    } else {
+                        let rawText = valTokens.map(t => t.value).join('').replace(/;/g, ',');
+                        let parts = rawText.split(',');
+                        let v1 = parseFloat(parts[0]);
+                        let v2 = parseFloat(parts[1]);
+                        if (p === 'position') {
+                            obj.x = isNaN(v1) ? obj.x : v1;
+                            obj.y = isNaN(v2) ? obj.y : v2;
+                        } else {
+                            obj.w = isNaN(v1) ? obj.w : v1;
+                            obj.h = isNaN(v2) ? obj.h : v2;
                         }
-                        this.consume();
-                        if (prop === 'color') obj.color = v[0];
-                        if (prop === 'position') { obj.x = parseFloat(v[0]); obj.y = parseFloat(v[1]); }
-                        if (prop === 'size') { obj.w = parseFloat(v[0]); obj.h = parseFloat(v[1]); }
-                    } else if (prop === 'anchored') {
-                        obj.anchored = true;
                     }
-                    if (this.peek() && this.peek().value === ';') this.consume();
+                } else {
+                    let val = this.evaluateExpression(valTokens);
+                    if (op === '=+') obj[p] += val;
+                    else if (op === '=-') obj[p] -= val;
+                    else obj[p] = val;
                 }
             }
 
             handleForever() {
                 this.consume(); // Forever
-                this.consume(); // ,
+                if (this.peek()?.value === ',') this.consume();
                 let start = this.pos;
-                let depth = 0;
-                while (this.pos < this.tokens.length) {
-                    if (this.peek().value === 'Forever') depth++;
-                    if (this.peek().value === '.' && depth === 0) break;
-                    if (this.peek().value === '.') depth--;
+                let depth = 0; 
+                while(this.pos < this.tokens.length) {
+                    const t = this.peek();
+                    if (!t) break;
+                    if (t.value === 'If') depth++;
+                    if (t.value === '.') {
+                        if (depth === 0) break; 
+                        depth--; 
+                    }
                     this.pos++;
                 }
                 this.foreverBlocks.push(this.tokens.slice(start, this.pos));
-                if (this.peek()) this.consume();
+                if (this.peek()?.value === '.') this.consume();
             }
         }
 
+        let interpreter;
         function updateLoop() {
             if (!running) return;
             interpreter.foreverBlocks.forEach(block => {
-                let p = 0;
-                while(p < block.length) {
-                    if (block[p]?.value === 'If') {
-                        let cur = p;
-                        if (block[cur+1]?.value === 'key' && block[cur+2]?.value === '(') {
-                            let keyName = block[cur+3]?.value;
-                            let triggerIdx = -1;
-                            for(let i=cur; i<block.length; i++) { 
-                                if(block[i].value === ',') { triggerIdx = i; break; } 
+                let idx = 0;
+                while (idx < block.length) {
+                    const t = block[idx];
+                    if (t.value === 'If') {
+                        let ifEnd = -1, subDepth = 0;
+                        for(let i = idx + 1; i < block.length; i++) {
+                            if(block[i].value === 'If') subDepth++;
+                            if(block[i].value === '.') {
+                                if(subDepth === 0) { ifEnd = i; break; }
+                                subDepth--;
                             }
+                        }
+                        
+                        let keyName = "";
+                        let search = idx;
+                        while(search < ifEnd && block[search].value !== ',') {
+                            if(block[search].type === 'IDENTIFIER' && block[search].value.length === 1) {
+                                keyName = block[search].value.toUpperCase();
+                                break;
+                            }
+                            search++;
+                        }
+                        
+                        if (keyName && keys[keyName] === true) {
+                            let commaIdx = -1;
+                            for(let i=idx; i<ifEnd; i++) if(block[i].value === ',') { commaIdx = i; break; }
                             
-                            if (triggerIdx !== -1 && keys[keyName.toUpperCase()]) {
-                                let targetNameToken = block[triggerIdx+1];
-                                if (!targetNameToken) return;
-                                
-                                let targetName = targetNameToken.value.split('.')[0];
-                                let propName = targetNameToken.value.split('.')[1] || block[triggerIdx+3]?.value;
-                                
-                                // Adjusting indices based on how targetName.Prop is lexed
-                                let opIdx = triggerIdx + (targetNameToken.value.includes('.') ? 2 : 4);
-                                let op = block[opIdx]?.value;
-                                
-                                let exprStart = opIdx + 1;
-                                let exprEnd = -1;
-                                for(let i=exprStart; i<block.length; i++) { 
-                                    if(block[i].value === '.') { exprEnd = i; break; } 
-                                }
-                                if (exprEnd === -1) exprEnd = block.length;
+                            if (commaIdx !== -1) {
+                                let scope = {
+                                    tokens: block,
+                                    pos: commaIdx + 1,
+                                    peek() { return this.tokens[this.pos]; },
+                                    consume() { return this.tokens[this.pos++]; },
+                                    evaluateExpression: interpreter.evaluateExpression
+                                };
 
-                                let exprTokens = block.slice(exprStart, exprEnd);
-                                let val = interpreter.evaluateExpression(exprTokens);
-                                
-                                let target = objects.find(o => o.name === targetName);
-                                if (target) {
-                                    const prop = propName.toLowerCase();
-                                    if (op === '=+') target[prop] += val;
-                                    else if (op === '=-') target[prop] -= val;
-                                    else if (op === '=*') target[prop] *= val;
-                                    else if (op === '=/') target[prop] /= val;
+                                while (scope.pos < ifEnd) {
+                                    let innerToken = scope.peek();
+                                    if (!innerToken || innerToken.value === '.') break;
+                                    const val = innerToken.value.toLowerCase();
+                                    if (val === 'new') interpreter.handleNew(scope);
+                                    else if (val === 'print') interpreter.handlePrint(scope);
+                                    else if (innerToken.type === 'IDENTIFIER' && innerToken.value.includes('.')) interpreter.handleProp(scope);
+                                    else scope.pos++;
                                 }
                             }
                         }
-                    }
-                    p++;
+                        idx = ifEnd + 1;
+                    } else idx++;
                 }
             });
             draw();
@@ -468,27 +416,25 @@ Forever,
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             objects.forEach(obj => {
-                ctx.fillStyle = obj.color;
-                ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                ctx.fillStyle = obj.color || 'white';
+                ctx.fillRect(obj.x || 0, obj.y || 0, obj.w || 50, obj.h || 50);
                 ctx.fillStyle = "rgba(255,255,255,0.4)";
                 ctx.font = "10px 'Fira Code'";
-                ctx.fillText(obj.name.toUpperCase(), obj.x, obj.y - 5);
+                ctx.fillText(obj.name.toUpperCase(), (obj.x || 0), (obj.y || 0) - 5);
             });
         }
 
-        let interpreter;
         function runCode() {
-            if (isDocMode) return;
-            running = false;
+            running = false; 
             cancelAnimationFrame(animationFrame);
+            clearConsole();
             const tokens = lex(editor.value);
-            if (!tokens) { log("Lexical error.", "error"); return; }
             interpreter = new Interpreter(tokens);
             if (interpreter.run()) {
                 running = true;
                 updateLoop();
-                log("Project running.");
-                statusDot.classList.replace('bg-slate-600', 'bg-emerald-500');
+                log("Build Successful. v1.6.1 Live.", "info");
+                statusDot.classList.replace('bg-slate-600', 'bg-indigo-500');
             }
         }
 

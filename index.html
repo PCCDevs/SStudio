@@ -11,8 +11,13 @@
         body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
         .app-container { height: 100vh; display: flex; flex-direction: column; }
-        .main-content { flex: 1; display: grid; grid-template-columns: 1fr 450px; gap: 1rem; padding: 1rem; overflow: hidden; }
+        .main-content { flex: 1; display: grid; grid-template-columns: 200px 1fr 450px; gap: 1rem; padding: 1rem; overflow: hidden; }
         
+        .sidebar { background: #1e293b; border-radius: 12px; border: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden; }
+        .file-item { padding: 8px 16px; font-size: 12px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.2s; }
+        .file-item:hover { background: #334155; }
+        .file-item.active { background: #334155; border-left-color: #6366f1; color: white; font-weight: bold; }
+
         .editor-container { 
             position: relative; 
             background: #1e293b; 
@@ -37,21 +42,18 @@
 
         #highlighting { pointer-events: none; color: transparent; z-index: 1; overflow: hidden; user-select: none; }
         #editor { background: transparent; color: #ffffff; caret-color: #ffffff; resize: none; z-index: 2; overflow: auto; }
-        #editor::selection { background: rgba(255, 255, 255, 0.2); }
 
         .token-keyword { color: #8b5cf6; font-weight: bold; }
         .token-string { color: #10b981; }
         .token-number { color: #f59e0b; }
         .token-comment { color: #64748b; font-style: italic; }
         .token-symbol { color: #94a3b8; }
-        .token-math { color: #ec4899; }
 
         .canvas-container { background: #000; border-radius: 12px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); }
-        canvas { width: 100%; height: auto; aspect-ratio: 4/3; image-rendering: pixelated; }
+        canvas { width: 100%; height: auto; aspect-ratio: 4/3; image-rendering: auto; }
 
-        #editor::-webkit-scrollbar { width: 10px; height: 10px; }
-        #editor::-webkit-scrollbar-track { background: #1e293b; }
-        #editor::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
+        .console-outer { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0f172a; overflow: hidden; }
+        #console { flex: 1; overflow-y: auto; display: flex; flex-direction: column; scroll-behavior: smooth; }
     </style>
 </head>
 <body>
@@ -66,7 +68,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">SStudio</h1>
-                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">S# Language Studio v1.6</p>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">SStudio v2.1</p>
                 </div>
             </div>
             
@@ -79,59 +81,36 @@
         </header>
 
         <div class="main-content">
-            <div class="editor-container">
-                <div class="bg-slate-800/50 px-4 py-2 flex items-center justify-between border-b border-slate-700">
-                    <span id="file-label" class="text-xs font-bold text-slate-400 tracking-tight">APPLICATION.S#</span>
+            <div class="sidebar">
+                <div class="p-3 border-b border-slate-700 flex justify-between items-center">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Explorer</span>
+                    <button onclick="addNewFile()" class="text-indigo-400 hover:text-white text-lg">+</button>
                 </div>
-                <div id="editor-wrapper">
-                    <div id="highlighting" aria-hidden="true"></div>
-                    <textarea id="editor" oninput="updateEditor()" onscroll="syncScroll()" spellcheck="false" autocomplete="off">
---// Example Script for top-down movement //--
-print("Hello World!")
-
---// Creating Hero and Sky //--
-new:Box("sky") in "canvas"
-sky.Color = "#1e293b"
-sky.Size = 800;600
-sky.Position = 0;0
-
-new:Box("hero") in "canvas"
-hero.Color = "#6366f1"
-hero.Size = 40;40
-hero.Position = 380;460
-
---// Speed Variable //--
-new:Variable("speed") = (5)
-
---// Movement Script//--
-Forever,
-    If key(W) pressed,
-        hero.Y =- speed
-    .
-    If key(S) pressed,
-        hero.Y =+ speed
-    .
-    If key(A) pressed,
-        hero.X =- speed
-    .
-    If key(D) pressed,
-        hero.X =+ speed
-    .
-.</textarea>
+                <div id="file-list" class="flex-1 overflow-y-auto pt-2">
                 </div>
             </div>
 
-            <div class="flex flex-col gap-4">
-                <div class="canvas-container">
+            <div class="editor-container">
+                <div class="bg-slate-800/50 px-4 py-2 flex items-center justify-between border-b border-slate-700">
+                    <span id="current-file-label" class="text-xs font-bold text-slate-400 tracking-tight">Main.s#</span>
+                </div>
+                <div id="editor-wrapper">
+                    <div id="highlighting" aria-hidden="true"></div>
+                    <textarea id="editor" oninput="handleEditorInput()" onscroll="syncScroll()" spellcheck="false" autocomplete="off"></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4 overflow-hidden">
+                <div class="canvas-container shrink-0">
                     <canvas id="gameCanvas" width="800" height="600"></canvas>
                 </div>
 
-                <div class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-                    <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center">
+                <div class="console-outer border border-slate-800 rounded-xl shadow-2xl">
+                    <div class="bg-slate-800 px-4 py-2 border-b border-slate-700 flex justify-between items-center shrink-0">
                         <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">S# Runtime Output</span>
                         <button onclick="clearConsole()" class="text-[10px] text-slate-500 hover:text-white transition-colors">CLEAR</button>
                     </div>
-                    <div id="console" class="flex-1 overflow-y-auto p-4 space-y-1 font-mono text-[11px] leading-relaxed">
+                    <div id="console" class="p-4 space-y-1 font-mono text-[11px] leading-relaxed">
                     </div>
                 </div>
             </div>
@@ -145,18 +124,62 @@ Forever,
         const highlighting = document.getElementById('highlighting');
         const consoleEl = document.getElementById('console');
         const statusDot = document.getElementById('status-dot');
-        const keys = {};
+        
+        let files = [
+            { name: "Main.s#", content: '--// Main Script //--\nprint("Initializing Assets...")\n\nnew:Box("sky") in "canvas"\nsky.Color = "#0f172a"\nsky.Position = 0;0\nsky.Size = 800;600\n\nnew:Box("hero") in "canvas"\nhero.Color = "#6366f1"\nhero.Position = 380;280\nhero.Size = 50;50\n--// Changing Shape Example //--\nhero.Shape = "Triangle"\n\nnew:Box("enemy") in "canvas"\nenemy.Color = "#f43f5e"\nenemy.Position = 120;120\nenemy.Shape = "Circle"\n\nprint("Objects Initialized.")' },
+            { name: "Logic.s#", content: '--// Logic Script //--\nrequire("hero")\n\nForever,\n    If Client:Input:Key(W) pressed, hero.Y =- 5 .\n    If Client:Input:Key(S) pressed, hero.Y =+ 5 .\n    If Client:Input:Key(A) pressed, hero.X =- 5 .\n    If Client:Input:Key(D) pressed, hero.X =+ 5 .\n.' }
+        ];
+        let currentFileIdx = 0;
 
+        const keys = {};
         let objects = [];
         let variables = {};
         let running = false;
         let animationFrame;
+        let globalInterpreter;
 
-        function updateEditor() {
+        const assetCache = new Map();
+
+        function renderFileList() {
+            const list = document.getElementById('file-list');
+            list.innerHTML = '';
+            files.forEach((file, idx) => {
+                const item = document.createElement('div');
+                item.className = `file-item ${idx === currentFileIdx ? 'active' : ''}`;
+                item.textContent = file.name;
+                item.onclick = () => switchFile(idx);
+                list.appendChild(item);
+            });
+            document.getElementById('current-file-label').textContent = files[currentFileIdx].name;
+            editor.value = files[currentFileIdx].content;
+            updateHighlighting();
+        }
+
+        function switchFile(idx) {
+            files[currentFileIdx].content = editor.value;
+            currentFileIdx = idx;
+            renderFileList();
+        }
+
+        function addNewFile() {
+            const name = prompt("File name:", "Script" + (files.length + 1) + ".s#");
+            if (name) {
+                files.push({ name: name.endsWith('.s#') ? name : name + '.s#', content: '--// New Script //--' });
+                switchFile(files.length - 1);
+            }
+        }
+
+        function handleEditorInput() {
+            files[currentFileIdx].content = editor.value;
+            updateHighlighting();
+        }
+
+        function updateHighlighting() {
             let text = editor.value;
             let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            html = html.replace(/\b(new|in|If|key|pressed|Forever|print)\b/gi, '<span class="token-keyword">$1</span>')
-                       .replace(/\b(math\.round)\b/g, '<span class="token-math">$1</span>')
+            html = html.replace(/\b(new|in|If|Forever|Repeat|times|print|wait|require|Value|True|False|pressed|released|Once|Import|Link|Shape)\b/gi, '<span class="token-keyword">$1</span>')
+                       .replace(/\b(Client|Input|Key|Cursor|Hit|Text|Box|Triangle|Circle|Object)\b/gi, '<span class="token-keyword" style="color:#f472b6">$1</span>')
+                       .replace(/\b(String|Int|Boolean)\b/g, '<span class="token-keyword" style="color:#38bdf8">$1</span>')
                        .replace(/"([^"]*)"/g, '<span class="token-string">"$1"</span>')
                        .replace(/\b(\d+(\.\d+)?)\b/g, '<span class="token-number">$1</span>')
                        .replace(/(--\/\/.*?\/\/--)/g, '<span class="token-comment">$1</span>')
@@ -172,26 +195,29 @@ Forever,
 
         window.addEventListener('keydown', (e) => { keys[e.key.toUpperCase()] = true; });
         window.addEventListener('keyup', (e) => { keys[e.key.toUpperCase()] = false; });
-
+        
         function log(msg, type = 'info') {
             const div = document.createElement('div');
-            div.className = type === 'error' ? "text-red-400" : (type === 'print' ? "text-slate-200 border-l-2 border-indigo-500 pl-2" : "text-indigo-400 opacity-60");
-            div.textContent = type === 'print' ? msg : `[S#] > ${msg}`;
-            consoleEl.prepend(div);
+            if (type === 'error') div.className = "text-red-500 font-bold bg-red-950/30 px-2 py-1 border-l-4 border-red-500 my-1";
+            else if (type === 'print') div.className = "text-indigo-200 border-l-2 border-indigo-500 pl-2";
+            else div.className = "text-slate-500 italic text-[10px]";
+            div.textContent = (type === 'print' || type === 'error') ? msg : `[S#] ${msg}`;
+            consoleEl.appendChild(div);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
         }
 
         function clearConsole() { consoleEl.innerHTML = ''; }
 
-        function lex(input) {
+        function lex(input, fileName) {
             const tokens = [];
             const lines = input.split('\n');
             const patterns = [
                 { type: 'COMMENT', reg: /^--\/\/.*?\/\/--/ },
-                { type: 'KEYWORD', reg: /^(new|in|If|key|pressed|Forever|math\.round|print)/i },
+                { type: 'KEYWORD', reg: /^(new|in|If|Forever|Repeat|times|print|wait|require|Value|True|False|String|Int|Boolean|pressed|released|Client|Input|Key|Cursor|Hit|Text|Box|Object|Circle|Triangle|Once|Import|Link|Shape)/i },
                 { type: 'OPERATOR', reg: /^(=[+\-*/]|==|=|[+\-*/])/ },
                 { type: 'SYMBOL', reg: /^[:.,();]/ },
                 { type: 'STRING', reg: /^"([^"]*)"/ },
-                { type: 'NUMBER', reg: /^-?\d+(\.\d+)?/ },
+                { type: 'NUMBER', reg: /^\d+(\.\d+)?/ },
                 { type: 'IDENTIFIER', reg: /^[a-zA-Z_][a-zA-Z0-9_.]*/ },
                 { type: 'WHITESPACE', reg: /^\s+/ }
             ];
@@ -204,209 +230,342 @@ Forever,
                         const res = line.slice(pos).match(p.reg);
                         if (res) {
                             if (p.type !== 'WHITESPACE' && p.type !== 'COMMENT') {
-                                tokens.push({ type: p.type, value: res[0], content: res[1] || res[0], line: lineIdx });
+                                let val = res[0].trim();
+                                if (val) tokens.push({ type: p.type, value: val, content: res[1] || val, line: lineIdx + 1, file: fileName });
                             }
                             pos += res[0].length; match = true; break;
                         }
                     }
-                    if (!match) { pos++; }
+                    if (!match) pos++;
                 }
-                tokens.push({ type: 'NEWLINE', value: '\n', line: lineIdx });
+                tokens.push({ type: 'EOL', value: 'EOL', line: lineIdx + 1, file: fileName });
             });
             return tokens;
         }
 
-        class Interpreter {
-            constructor(tokens) { this.tokens = tokens; this.pos = 0; this.foreverBlocks = []; }
-            peek() { return this.tokens[this.pos]; }
-            consume() { return this.tokens[this.pos++]; }
+        function resolveValue(val) {
+            if (val === null || val === undefined) return "";
+            const text = String(val).trim();
+            if (variables.hasOwnProperty(text)) return variables[text];
+            if (text.includes('.')) {
+                const parts = text.split('.');
+                const objName = parts[0];
+                const prop = parts[1].toLowerCase();
+                const obj = objects.find(o => o.name === objName);
+                if (obj) {
+                    if (prop === 'x') return obj.x;
+                    if (prop === 'y') return obj.y;
+                    if (prop === 'value') return obj.value;
+                    if (prop === 'size') return obj.size;
+                    if (prop === 'shape') return obj.shape;
+                }
+            }
+            return val;
+        }
+
+        function evaluateExpression(tokens) {
+            if (!tokens || tokens.length === 0) return "";
+            const raw = tokens.map(t => t.value).join('');
             
-            evaluateExpression(tokens) {
-                if (!tokens || tokens.length === 0) return 0;
-                let str = tokens.map(t => {
-                    if (t.type === 'IDENTIFIER' && variables[t.value] !== undefined) return variables[t.value];
-                    if (t.value === 'math.round') return 'Math.round';
-                    return t.value;
-                }).join('');
-                try { return eval(str) || 0; } catch { return 0; }
+            // Check for Import:Link call
+            if (raw.toLowerCase().includes('import:link')) {
+                const linkMatch = raw.match(/Link\("?([^")]*)"?\)/i);
+                if (linkMatch) {
+                    const url = linkMatch[1];
+                    if (!assetCache.has(url)) {
+                        const img = new Image();
+                        img.src = url;
+                        assetCache.set(url, img);
+                    }
+                    return url;
+                }
             }
 
-            run() {
-                objects = []; variables = {};
-                while (this.pos < this.tokens.length) {
-                    const t = this.peek();
-                    if (!t) break;
+            if (raw.includes(';') && !/[+\-*/]/.test(raw)) {
+                return raw.split(';').map(p => resolveValue(p)).join(';');
+            }
+            let parts = tokens.map(t => {
+                if (t.type === 'STRING') return t.content;
+                if (t.type === 'NUMBER') return parseFloat(t.value);
+                if (t.type === 'IDENTIFIER') return resolveValue(t.value);
+                return t.value;
+            });
+            if (parts.length === 0) return "";
+            let result = parts[0];
+            for (let i = 1; i < parts.length; i++) {
+                let op = parts[i];
+                let next = parts[i + 1];
+                if (op === '+') result = (typeof result === 'string' || typeof next === 'string') ? String(result) + String(next) : (Number(result) || 0) + (Number(next) || 0);
+                else if (op === '-') result = (Number(result) || 0) - (Number(next) || 0);
+                else if (op === '*') result = (Number(result) || 0) * (Number(next) || 0);
+                else if (op === '/') result = (Number(result) || 0) / (Number(next) || 1);
+                i++;
+            }
+            return result;
+        }
+
+        class Interpreter {
+            constructor(tokens) { 
+                this.tokens = tokens; 
+                this.pos = 0; 
+                this.foreverBlocks = []; 
+                this.pauseUntil = 0;
+                this.onceMap = new Map();
+            }
+
+            reportError(msg, token) {
+                const file = token?.file || "unknown";
+                const line = token?.line || "?";
+                const got = token?.value === 'EOL' ? 'eof' : (token?.value || "eof");
+                log(`ERROR: ${msg} but got ${got}. Line ${line} in script "${file}"`, 'error');
+            }
+            
+            async execute(tokenList, conditionMet = false) {
+                let i = 0;
+                while (i < tokenList.length) {
+                    if (!running) return;
+                    if (Date.now() < this.pauseUntil) {
+                        await new Promise(r => setTimeout(r, 16));
+                        continue; 
+                    }
+                    const t = tokenList[i];
+                    if (!t || t.type === 'EOL') { i++; continue; }
                     const val = t.value.toLowerCase();
-                    if (val === 'new') this.handleNew(this);
-                    else if (val === 'forever') this.handleForever();
-                    else if (val === 'print') this.handlePrint(this);
-                    else if (t.type === 'IDENTIFIER' && t.value.includes('.')) this.handleProp(this);
-                    else this.pos++;
+                    if (val === 'new') i = this.handleNew(tokenList, i);
+                    else if (val === 'print') i = this.handlePrint(tokenList, i);
+                    else if (val === 'wait') i = this.handleWait(tokenList, i);
+                    else if (val === 'require') i = await this.handleRequire(tokenList, i);
+                    else if (val === 'if') i = await this.handleIf(tokenList, i);
+                    else if (val === 'once') i = await this.handleOnce(tokenList, i, conditionMet);
+                    else if (val === 'repeat') i = await this.handleRepeat(tokenList, i);
+                    else if (t.type === 'IDENTIFIER' && tokenList[i+1]?.type === 'OPERATOR') i = this.handleAssignment(tokenList, i);
+                    else i++;
                 }
-                return true;
             }
 
-            handlePrint(scope) {
-                scope.consume(); // print
-                if (scope.peek()?.value === '(') scope.consume();
-                let content = "";
-                let t = scope.peek();
-                if (t?.type === 'STRING') content = scope.consume().content;
-                else if (t && variables[t.value] !== undefined) content = variables[scope.consume().value];
-                else if (t && t.type !== 'SYMBOL' && t.type !== 'NEWLINE') content = scope.consume().value;
-                
-                if (scope.peek()?.value === ')') scope.consume();
-                // Consume newline to move to next instruction
-                if (scope.peek()?.type === 'NEWLINE') scope.consume();
-                log(content, 'print');
-            }
-
-            handleNew(scope) {
-                scope.consume(); // new
-                if (scope.peek()?.value === ':') scope.consume();
-                let typeToken = scope.consume();
-                if (!typeToken) return;
-                let type = typeToken.value.toLowerCase();
-                if (scope.peek()?.value === '(') scope.consume();
-                let nameToken = scope.consume();
-                let name = nameToken ? nameToken.content : "unknown";
-                if (scope.peek()?.value === ')') scope.consume();
-                
-                if (type === 'variable') {
-                    if (scope.peek()?.value === '=') scope.consume();
-                    if (scope.peek()?.value === '(') scope.consume();
-                    let expr = []; while(scope.peek() && scope.peek().value !== ')' && scope.peek().type !== 'NEWLINE') expr.push(scope.consume());
-                    if (scope.peek()?.value === ')') scope.consume(); 
-                    variables[name] = this.evaluateExpression(expr);
-                } else if (type === 'box') {
-                    if (!objects.find(o => o.name === name)) {
-                        objects.push({ type: 'box', x: 0, y: 0, w: 50, h: 50, color: 'white', name: name });
+            findBlockEnd(list, startIdx, open = '(', close = ')') {
+                let depth = 0;
+                for (let j = startIdx; j < list.length; j++) {
+                    const v = list[j].value;
+                    if (v === open) depth++;
+                    if (v === close) {
+                        if (depth === 0) return j;
+                        depth--;
                     }
                 }
+                return -1;
             }
 
-            handleProp(scope) {
-                let full = scope.consume().value;
-                let [name, prop] = full.split('.');
-                let opToken = scope.consume();
-                
-                let valTokens = []; 
-                while(scope.peek() && scope.peek().type !== 'NEWLINE' && scope.peek().value !== '.') {
-                    valTokens.push(scope.consume());
+            findDotBlockEnd(list, startIdx) {
+                let depth = 0;
+                for (let j = startIdx; j < list.length; j++) {
+                    const v = list[j].value.toLowerCase();
+                    if (['if', 'repeat', 'forever'].includes(v)) depth++;
+                    if (v === '.') {
+                        if (depth === 0) return j;
+                        depth--;
+                    }
                 }
-                // Skip newline if it exists
-                if(scope.peek()?.type === 'NEWLINE') scope.consume();
+                return -1;
+            }
+
+            async handleOnce(list, i, conditionMet) {
+                const onceToken = list[i];
+                const onceId = `once_${onceToken.line}_${i}`;
+                let next = i + 1;
+                if (!list[next] || list[next].value !== '(') {
+                    this.reportError('Expected "(" in Once()', list[next] || onceToken);
+                    return i + 1;
+                }
+                next++;
+                let blockEnd = this.findBlockEnd(list, next, '(', ')');
+                if (blockEnd === -1) {
+                    this.reportError('Expected ")" to close Once()', list[list.length-1]);
+                    return i + 1;
+                }
+                const body = list.slice(next, blockEnd);
+                if (conditionMet) {
+                    if (!this.onceMap.get(onceId)) {
+                        this.onceMap.set(onceId, true);
+                        await this.execute(body, true);
+                    }
+                } else this.onceMap.set(onceId, false);
+                return blockEnd + 1;
+            }
+
+            async handleRequire(list, i) {
+                const reqToken = list[i++];
+                if (list[i]?.value === '(') i++;
+                let targetNameToken = list[i++];
+                let targetName = targetNameToken?.content;
+                if (list[i]?.value === ')') i++;
+                while (!objects.some(o => o.name === targetName)) {
+                    if (!running) return i;
+                    await new Promise(r => setTimeout(r, 50));
+                }
+                return i;
+            }
+
+            async handleRepeat(list, i) {
+                const repeatToken = list[i++];
+                let countTokens = [];
+                while (list[i] && list[i].value.toLowerCase() !== 'times' && list[i].value !== ',') countTokens.push(list[i++]);
+                if (list[i]?.value.toLowerCase() === 'times') i++;
+                let count = parseInt(evaluateExpression(countTokens)) || 0;
+                if (list[i]?.value === ',') i++;
+                let blockEnd = this.findDotBlockEnd(list, i);
+                if (blockEnd !== -1) {
+                    const body = list.slice(i, blockEnd);
+                    for (let n = 0; n < count; n++) await this.execute(body, true);
+                    return blockEnd + 1;
+                }
+                return i;
+            }
+
+            async handleIf(list, i) {
+                const ifToken = list[i++];
+                let conditionTokens = [];
+                while (list[i] && list[i].value !== ',') conditionTokens.push(list[i++]);
+                if (list[i]?.value === ',') i++;
+                let blockEnd = this.findDotBlockEnd(list, i);
+                if (blockEnd === -1) return i;
+
+                let condStr = conditionTokens.map(t => t.value).join('');
+                let ok = false;
+                if (condStr.includes(':Hit')) {
+                    let [objName, hitPart] = condStr.split(':Hit');
+                    let a = objects.find(o => o.name === objName);
+                    let bMatch = hitPart.match(/"([^"]*)"/);
+                    let bName = bMatch ? bMatch[1] : hitPart.replace(/[()]/g, '');
+                    let b = objects.find(o => o.name === bName);
+                    if (a && b) {
+                        let hit = (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
+                        ok = condStr.includes('released') ? !hit : hit;
+                    }
+                } else if (condStr.includes('Key(')) {
+                    let key = condStr.match(/Key\((.)\)/)?.[1];
+                    if (key) ok = !!keys[key.toUpperCase()];
+                }
+
+                const body = list.slice(i, blockEnd);
+                if (ok) await this.execute(body, true);
+                else {
+                    for (let j = 0; j < body.length; j++) if (body[j].value.toLowerCase() === 'once') await this.handleOnce(body, j, false);
+                }
+                return blockEnd + 1;
+            }
+
+            handleWait(list, i) {
+                const waitToken = list[i++];
+                if (list[i]?.value === '(') i++;
+                let expr = [];
+                while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
+                let ms = parseFloat(evaluateExpression(expr)) || 0;
+                this.pauseUntil = Date.now() + ms;
+                if (list[i]?.value === ')') i++;
+                return i;
+            }
+
+            handleAssignment(list, i) {
+                let target = list[i++].value;
+                let opToken = list[i++];
+                let op = opToken.value;
+                let exprTokens = [];
+                while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.' && list[i].value !== ')') exprTokens.push(list[i++]);
+                let val = evaluateExpression(exprTokens);
                 
-                let obj = objects.find(o => o.name === name);
-                if(!obj) return;
-
-                let p = prop.toLowerCase();
-                let op = opToken ? opToken.value : '=';
-
-                if(p === 'color') {
-                    obj.color = valTokens.map(t => t.value).join('').replace(/"/g, '');
-                } else if(p === 'position' || p === 'size' || p === 'x' || p === 'y') {
-                    if (p === 'x' || p === 'y') {
-                        let val = this.evaluateExpression(valTokens);
-                        if (op === '=+') obj[p] += val;
-                        else if (op === '=-') obj[p] -= val;
-                        else obj[p] = val;
-                    } else {
-                        let rawText = valTokens.map(t => t.value).join('').replace(/;/g, ',');
-                        let parts = rawText.split(',');
-                        let v1 = parseFloat(parts[0]);
-                        let v2 = parseFloat(parts[1]);
-                        if (p === 'position') {
-                            obj.x = isNaN(v1) ? obj.x : v1;
-                            obj.y = isNaN(v2) ? obj.y : v2;
-                        } else {
-                            obj.w = isNaN(v1) ? obj.w : v1;
-                            obj.h = isNaN(v2) ? obj.h : v2;
+                if (target.includes('.')) {
+                    const [name, prop] = target.split('.');
+                    const obj = objects.find(o => o.name === name);
+                    if (obj) {
+                        const p = prop.toLowerCase();
+                        if (p === 'color') obj.color = String(val).replace(/"/g,'');
+                        else if (p === 'sprite') obj.sprite = String(val).replace(/"/g,'');
+                        else if (p === 'shape') obj.shape = String(val).replace(/"/g,'');
+                        else if (p === 'value') obj.value = String(val);
+                        else if (p === 'position' || p === 'size') {
+                            let parts = String(val).split(';');
+                            if (p === 'position') { obj.x = parseFloat(parts[0]); obj.y = parseFloat(parts[1]); }
+                            else { obj.w = parseFloat(parts[0]); obj.h = parseFloat(parts[1]); }
+                        } else if (p === 'x' || p === 'y') {
+                            if (op === '=+') obj[p] += (parseFloat(val) || 0);
+                            else if (op === '=-') obj[p] -= (parseFloat(val) || 0);
+                            else obj[p] = parseFloat(val);
                         }
-                    }
+                    } else this.reportError(`Object "${name}" not found`, opToken);
                 } else {
-                    let val = this.evaluateExpression(valTokens);
-                    if (op === '=+') obj[p] += val;
-                    else if (op === '=-') obj[p] -= val;
-                    else obj[p] = val;
+                    if (op === '=+') variables[target] = (Number(variables[target]) || 0) + (Number(val) || 0);
+                    else if (op === '=-') variables[target] = (Number(variables[target]) || 0) - (Number(val) || 0);
+                    else variables[target] = val;
                 }
+                return i;
             }
 
-            handleForever() {
-                this.consume(); // Forever
-                if (this.peek()?.value === ',') this.consume();
-                let start = this.pos;
-                let depth = 0; 
-                while(this.pos < this.tokens.length) {
-                    const t = this.peek();
-                    if (!t) break;
-                    if (t.value === 'If') depth++;
-                    if (t.value === '.') {
-                        if (depth === 0) break; 
-                        depth--; 
-                    }
-                    this.pos++;
+            handleNew(list, i) {
+                const newToken = list[i++];
+                if (list[i]?.value === ':') i++;
+                let typeToken = list[i++];
+                let type = typeToken?.value.toLowerCase();
+                if (list[i]?.value === '(') i++;
+                let nameToken = list[i++];
+                let name = nameToken?.content;
+                if (list[i]?.value === ')') i++;
+
+                if (['string', 'int', 'boolean'].includes(type)) {
+                    if (list[i]?.value === '=') i++;
+                    let expr = [];
+                    while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.') expr.push(list[i++]);
+                    variables[name] = evaluateExpression(expr);
+                } else {
+                    // Default to Square shape for Box
+                    let shape = "Square";
+                    if (type === "circle") shape = "Circle";
+                    if (type === "triangle") shape = "Triangle";
+                    objects.push({ type: 'object', shape, x: 0, y: 0, w: 40, h: 40, color: 'white', name, value: "", size: 24, sprite: null });
                 }
-                this.foreverBlocks.push(this.tokens.slice(start, this.pos));
-                if (this.peek()?.value === '.') this.consume();
+                return i;
+            }
+
+            handlePrint(list, i) {
+                i++; if (list[i]?.value === '(') i++;
+                let expr = [];
+                while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
+                log(String(evaluateExpression(expr)), 'print');
+                if (list[i]?.value === ')') i++;
+                return i;
+            }
+
+            async run() {
+                objects = []; variables = {}; this.pos = 0;
+                while (this.pos < this.tokens.length) {
+                    const t = this.tokens[this.pos];
+                    if (t.value.toLowerCase() === 'forever') {
+                        this.pos++; if (this.tokens[this.pos]?.value === ',') this.pos++;
+                        let blockEnd = this.findDotBlockEnd(this.tokens, this.pos);
+                        if (blockEnd !== -1) {
+                            this.foreverBlocks.push({ tokens: this.tokens.slice(this.pos, blockEnd), isExecuting: false });
+                            this.pos = blockEnd + 1;
+                        } else this.pos++;
+                    } else {
+                        let inst = [];
+                        while (this.pos < this.tokens.length) {
+                            if (this.tokens[this.pos].value.toLowerCase() === 'forever') break;
+                            inst.push(this.tokens[this.pos++]);
+                        }
+                        await this.execute(inst, true);
+                    }
+                }
             }
         }
 
-        let interpreter;
         function updateLoop() {
             if (!running) return;
-            interpreter.foreverBlocks.forEach(block => {
-                let idx = 0;
-                while (idx < block.length) {
-                    const t = block[idx];
-                    if (t.value === 'If') {
-                        let ifEnd = -1, subDepth = 0;
-                        for(let i = idx + 1; i < block.length; i++) {
-                            if(block[i].value === 'If') subDepth++;
-                            if(block[i].value === '.') {
-                                if(subDepth === 0) { ifEnd = i; break; }
-                                subDepth--;
-                            }
-                        }
-                        
-                        let keyName = "";
-                        let search = idx;
-                        while(search < ifEnd && block[search].value !== ',') {
-                            if(block[search].type === 'IDENTIFIER' && block[search].value.length === 1) {
-                                keyName = block[search].value.toUpperCase();
-                                break;
-                            }
-                            search++;
-                        }
-                        
-                        if (keyName && keys[keyName] === true) {
-                            let commaIdx = -1;
-                            for(let i=idx; i<ifEnd; i++) if(block[i].value === ',') { commaIdx = i; break; }
-                            
-                            if (commaIdx !== -1) {
-                                let scope = {
-                                    tokens: block,
-                                    pos: commaIdx + 1,
-                                    peek() { return this.tokens[this.pos]; },
-                                    consume() { return this.tokens[this.pos++]; },
-                                    evaluateExpression: interpreter.evaluateExpression
-                                };
-
-                                while (scope.pos < ifEnd) {
-                                    let innerToken = scope.peek();
-                                    if (!innerToken || innerToken.value === '.') break;
-                                    const val = innerToken.value.toLowerCase();
-                                    if (val === 'new') interpreter.handleNew(scope);
-                                    else if (val === 'print') interpreter.handlePrint(scope);
-                                    else if (innerToken.type === 'IDENTIFIER' && innerToken.value.includes('.')) interpreter.handleProp(scope);
-                                    else scope.pos++;
-                                }
-                            }
-                        }
-                        idx = ifEnd + 1;
-                    } else idx++;
+            for (let block of globalInterpreter.foreverBlocks) {
+                if (!block.isExecuting) {
+                    block.isExecuting = true;
+                    globalInterpreter.execute(block.tokens, true).finally(() => { block.isExecuting = false; });
                 }
-            });
+            }
             draw();
             animationFrame = requestAnimationFrame(updateLoop);
         }
@@ -414,11 +573,35 @@ Forever,
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             objects.forEach(obj => {
+                if (obj.sprite) {
+                    const img = assetCache.get(obj.sprite);
+                    if (img && img.complete) {
+                        ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
+                        return;
+                    }
+                }
+
                 ctx.fillStyle = obj.color || 'white';
-                ctx.fillRect(obj.x || 0, obj.y || 0, obj.w || 50, obj.h || 50);
-                ctx.fillStyle = "rgba(255,255,255,0.4)";
-                ctx.font = "10px 'Fira Code'";
-                ctx.fillText(obj.name.toUpperCase(), (obj.x || 0), (obj.y || 0) - 5);
+                const s = (obj.shape || "Square").toLowerCase();
+                
+                if (s === "circle") {
+                    ctx.beginPath();
+                    ctx.arc(obj.x + obj.w / 2, obj.y + obj.h / 2, obj.w / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (s === "triangle") {
+                    ctx.beginPath();
+                    ctx.moveTo(obj.x + obj.w / 2, obj.y);
+                    ctx.lineTo(obj.x, obj.y + obj.h);
+                    ctx.lineTo(obj.x + obj.w, obj.y + obj.h);
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (obj.type === 'text') {
+                    ctx.font = `${obj.size || 24}px 'Fira Code', monospace`;
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(obj.value || "", obj.x, obj.y);
+                } else {
+                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                }
             });
         }
 
@@ -426,17 +609,21 @@ Forever,
             running = false; 
             cancelAnimationFrame(animationFrame);
             clearConsole();
-            const tokens = lex(editor.value);
-            interpreter = new Interpreter(tokens);
-            if (interpreter.run()) {
-                running = true;
-                updateLoop();
-                log("Build Successful. v1.6.1 Live.", "info");
+            objects = [];
+            variables = {};
+            statusDot.classList.replace('bg-indigo-500', 'bg-slate-600');
+            const allTokens = [];
+            files.forEach(f => allTokens.push(...lex(f.content, f.name)));
+            globalInterpreter = new Interpreter(allTokens);
+            running = true;
+            updateLoop();
+            globalInterpreter.run().then(() => {
+                log(`Environment Initialized.`, "info");
                 statusDot.classList.replace('bg-slate-600', 'bg-indigo-500');
-            }
+            });
         }
 
-        window.onload = () => { updateEditor(); draw(); };
+        window.onload = () => { renderFileList(); draw(); };
     </script>
 </body>
 </html>

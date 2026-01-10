@@ -13,11 +13,6 @@
         .app-container { height: 100vh; display: flex; flex-direction: column; }
         .main-content { flex: 1; display: grid; grid-template-columns: 200px 1fr 450px; gap: 1rem; padding: 1rem; overflow: hidden; }
         
-        .sidebar { background: #1e293b; border-radius: 12px; border: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden; }
-        .file-item { padding: 8px 16px; font-size: 12px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.2s; }
-        .file-item:hover { background: #334155; }
-        .file-item.active { background: #334155; border-left-color: #6366f1; color: white; font-weight: bold; }
-
         .editor-container { 
             position: relative; 
             background: #1e293b; 
@@ -42,6 +37,7 @@
 
         #highlighting { pointer-events: none; color: transparent; z-index: 1; overflow: hidden; user-select: none; }
         #editor { background: transparent; color: #ffffff; caret-color: #ffffff; resize: none; z-index: 2; overflow: auto; }
+        #editor::selection { background: rgba(255, 255, 255, 0.2); }
 
         .token-keyword { color: #8b5cf6; font-weight: bold; }
         .token-string { color: #10b981; }
@@ -50,7 +46,7 @@
         .token-symbol { color: #94a3b8; }
 
         .canvas-container { background: #000; border-radius: 12px; border: 4px solid #334155; position: relative; overflow: hidden; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5); }
-        canvas { width: 100%; height: auto; aspect-ratio: 4/3; image-rendering: auto; }
+        canvas { width: 100%; height: auto; aspect-ratio: 4/3; image-rendering: pixelated; cursor: crosshair; }
 
         .console-outer { flex: 1; min-height: 0; display: flex; flex-direction: column; background: #0f172a; overflow: hidden; }
         #console { flex: 1; overflow-y: auto; display: flex; flex-direction: column; scroll-behavior: smooth; }
@@ -68,7 +64,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">SStudio</h1>
-                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">SStudio v2.1</p>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">S# Language Core v2.0.10 (Error Reporting)</p>
                 </div>
             </div>
             
@@ -126,8 +122,8 @@
         const statusDot = document.getElementById('status-dot');
         
         let files = [
-            { name: "Main.s#", content: '--// Main Script //--\nprint("Initializing Assets...")\n\nnew:Box("sky") in "canvas"\nsky.Color = "#0f172a"\nsky.Position = 0;0\nsky.Size = 800;600\n\nnew:Box("hero") in "canvas"\nhero.Color = "#6366f1"\nhero.Position = 380;280\nhero.Size = 50;50\n--// Changing Shape Example //--\nhero.Shape = "Triangle"\n\nnew:Box("enemy") in "canvas"\nenemy.Color = "#f43f5e"\nenemy.Position = 120;120\nenemy.Shape = "Circle"\n\nprint("Objects Initialized.")' },
-            { name: "Logic.s#", content: '--// Logic Script //--\nrequire("hero")\n\nForever,\n    If Client:Input:Key(W) pressed, hero.Y =- 5 .\n    If Client:Input:Key(S) pressed, hero.Y =+ 5 .\n    If Client:Input:Key(A) pressed, hero.X =- 5 .\n    If Client:Input:Key(D) pressed, hero.X =+ 5 .\n.' }
+            { name: "Main.s#", content: '--// Main Script //--\nprint("Initializing...")\n\nnew:Box("sky") in "canvas"\nsky.Color = "#0f172a"\nsky.Position = 0;0\nsky.Size = 800;600\n\nnew:Box("hero") in "canvas"\nhero.Color = "#6366f1"\nhero.Position = 380;280\nhero.Size = 40;40\n\nnew:Box("goal") in "canvas"\ngoal.Color = "#f43f5e"\ngoal.Size = 40;40\ngoal.Position = 120;120\n\nprint("Objects Initialized.")' },
+            { name: "Logic.s#", content: '--// Logic Script //--\nrequire("hero")\nrequire("goal")\nprint("Logic Active.")\n\nForever,\n    If Client:Input:Key(W) pressed, hero.Y =- 5 .\n    If Client:Input:Key(S) pressed, hero.Y =+ 5 .\n    If Client:Input:Key(A) pressed, hero.X =- 5 .\n    If Client:Input:Key(D) pressed, hero.X =+ 5 .\n\n    If hero:Hit("goal"), \n        print("Goal reached!")\n        --// Relocate hero to avoid "wait" lag //--\n        hero.Position = 380;280\n        wait(500)\n    .\n.' }
         ];
         let currentFileIdx = 0;
 
@@ -266,21 +262,10 @@
         function evaluateExpression(tokens) {
             if (!tokens || tokens.length === 0) return "";
             const raw = tokens.map(t => t.value).join('');
-            
-            // Check for Import:Link call
             if (raw.toLowerCase().includes('import:link')) {
                 const linkMatch = raw.match(/Link\("?([^")]*)"?\)/i);
-                if (linkMatch) {
-                    const url = linkMatch[1];
-                    if (!assetCache.has(url)) {
-                        const img = new Image();
-                        img.src = url;
-                        assetCache.set(url, img);
-                    }
-                    return url;
-                }
+                if (linkMatch) return linkMatch[1];
             }
-
             if (raw.includes(';') && !/[+\-*/]/.test(raw)) {
                 return raw.split(';').map(p => resolveValue(p)).join(';');
             }
@@ -316,7 +301,9 @@
             reportError(msg, token) {
                 const file = token?.file || "unknown";
                 const line = token?.line || "?";
-                const got = token?.value === 'EOL' ? 'eof' : (token?.value || "eof");
+                let got = token?.value;
+                if (got === 'EOL') got = 'end of line';
+                if (!got) got = 'end of file';
                 log(`ERROR: ${msg} but got ${got}. Line ${line} in script "${file}"`, 'error');
             }
             
@@ -331,6 +318,7 @@
                     const t = tokenList[i];
                     if (!t || t.type === 'EOL') { i++; continue; }
                     const val = t.value.toLowerCase();
+
                     if (val === 'new') i = this.handleNew(tokenList, i);
                     else if (val === 'print') i = this.handlePrint(tokenList, i);
                     else if (val === 'wait') i = this.handleWait(tokenList, i);
@@ -373,16 +361,19 @@
                 const onceToken = list[i];
                 const onceId = `once_${onceToken.line}_${i}`;
                 let next = i + 1;
+                
                 if (!list[next] || list[next].value !== '(') {
-                    this.reportError('Expected "(" in Once()', list[next] || onceToken);
+                    this.reportError('Expected "(" in Once()', list[next] || { ...onceToken, value: null });
                     return i + 1;
                 }
                 next++;
+                
                 let blockEnd = this.findBlockEnd(list, next, '(', ')');
                 if (blockEnd === -1) {
                     this.reportError('Expected ")" to close Once()', list[list.length-1]);
                     return i + 1;
                 }
+
                 const body = list.slice(next, blockEnd);
                 if (conditionMet) {
                     if (!this.onceMap.get(onceId)) {
@@ -394,11 +385,25 @@
             }
 
             async handleRequire(list, i) {
-                const reqToken = list[i++];
-                if (list[i]?.value === '(') i++;
+                const reqToken = list[i];
+                i++; 
+                if (!list[i] || list[i].value !== '(') {
+                    this.reportError('Expected "(" in require()', list[i] || reqToken);
+                    return i;
+                }
+                i++;
                 let targetNameToken = list[i++];
-                let targetName = targetNameToken?.content;
-                if (list[i]?.value === ')') i++;
+                if (!targetNameToken || targetNameToken.type !== 'STRING') {
+                     this.reportError('Expected string name in require()', targetNameToken || list[i]);
+                     return i;
+                }
+                let targetName = targetNameToken.content;
+                if (!list[i] || list[i].value !== ')') {
+                    this.reportError('Expected ")" in require()', list[i] || reqToken);
+                    return i;
+                }
+                i++;
+
                 while (!objects.some(o => o.name === targetName)) {
                     if (!running) return i;
                     await new Promise(r => setTimeout(r, 50));
@@ -410,14 +415,21 @@
                 const repeatToken = list[i++];
                 let countTokens = [];
                 while (list[i] && list[i].value.toLowerCase() !== 'times' && list[i].value !== ',') countTokens.push(list[i++]);
-                if (list[i]?.value.toLowerCase() === 'times') i++;
+                
+                if (!list[i] || list[i].value.toLowerCase() !== 'times') {
+                     this.reportError('Expected keyword "times"', list[i] || repeatToken);
+                } else i++;
+
                 let count = parseInt(evaluateExpression(countTokens)) || 0;
                 if (list[i]?.value === ',') i++;
+                
                 let blockEnd = this.findDotBlockEnd(list, i);
                 if (blockEnd !== -1) {
                     const body = list.slice(i, blockEnd);
                     for (let n = 0; n < count; n++) await this.execute(body, true);
                     return blockEnd + 1;
+                } else {
+                    this.reportError('Missing "." terminator for Repeat block', list[list.length-1]);
                 }
                 return i;
             }
@@ -426,17 +438,25 @@
                 const ifToken = list[i++];
                 let conditionTokens = [];
                 while (list[i] && list[i].value !== ',') conditionTokens.push(list[i++]);
-                if (list[i]?.value === ',') i++;
+                
+                if (!list[i] || list[i].value !== ',') {
+                    this.reportError('Expected "," after condition', list[i] || ifToken);
+                    return i;
+                }
+                i++;
+
                 let blockEnd = this.findDotBlockEnd(list, i);
-                if (blockEnd === -1) return i;
+                if (blockEnd === -1) {
+                    this.reportError('Missing "." terminator for If block', list[list.length-1]);
+                    return i;
+                }
 
                 let condStr = conditionTokens.map(t => t.value).join('');
                 let ok = false;
                 if (condStr.includes(':Hit')) {
-                    let [objName, hitPart] = condStr.split(':Hit');
-                    let a = objects.find(o => o.name === objName);
-                    let bMatch = hitPart.match(/"([^"]*)"/);
-                    let bName = bMatch ? bMatch[1] : hitPart.replace(/[()]/g, '');
+                    let parts = condStr.split(':Hit');
+                    let a = objects.find(o => o.name === parts[0]);
+                    let bName = parts[1].replace(/[()]/g, '').replace(/"/g, '');
                     let b = objects.find(o => o.name === bName);
                     if (a && b) {
                         let hit = (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
@@ -457,12 +477,20 @@
 
             handleWait(list, i) {
                 const waitToken = list[i++];
-                if (list[i]?.value === '(') i++;
+                if (!list[i] || list[i].value !== '(') {
+                    this.reportError('Expected "(" in wait()', list[i] || waitToken);
+                    return i;
+                }
+                i++;
                 let expr = [];
                 while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
+                
+                if (!list[i] || list[i].value !== ')') {
+                    this.reportError('Expected ")" in wait()', list[i] || waitToken);
+                } else i++;
+
                 let ms = parseFloat(evaluateExpression(expr)) || 0;
                 this.pauseUntil = Date.now() + ms;
-                if (list[i]?.value === ')') i++;
                 return i;
             }
 
@@ -480,22 +508,22 @@
                     if (obj) {
                         const p = prop.toLowerCase();
                         if (p === 'color') obj.color = String(val).replace(/"/g,'');
-                        else if (p === 'sprite') obj.sprite = String(val).replace(/"/g,'');
-                        else if (p === 'shape') obj.shape = String(val).replace(/"/g,'');
                         else if (p === 'value') obj.value = String(val);
                         else if (p === 'position' || p === 'size') {
                             let parts = String(val).split(';');
                             if (p === 'position') { obj.x = parseFloat(parts[0]); obj.y = parseFloat(parts[1]); }
                             else { obj.w = parseFloat(parts[0]); obj.h = parseFloat(parts[1]); }
                         } else if (p === 'x' || p === 'y') {
-                            if (op === '=+') obj[p] += (parseFloat(val) || 0);
-                            else if (op === '=-') obj[p] -= (parseFloat(val) || 0);
-                            else obj[p] = parseFloat(val);
-                        }
+                            let num = parseFloat(val) || 0;
+                            if (op === '=+') obj[p] += num;
+                            else if (op === '=-') obj[p] -= num;
+                            else obj[p] = num;
+                        } else if (p === 'shape') obj.shape = String(val).replace(/"/g,'');
                     } else this.reportError(`Object "${name}" not found`, opToken);
                 } else {
-                    if (op === '=+') variables[target] = (Number(variables[target]) || 0) + (Number(val) || 0);
-                    else if (op === '=-') variables[target] = (Number(variables[target]) || 0) - (Number(val) || 0);
+                    let num = parseFloat(val) || 0;
+                    if (op === '=+') variables[target] = (Number(variables[target]) || 0) + num;
+                    else if (op === '=-') variables[target] = (Number(variables[target]) || 0) - num;
                     else variables[target] = val;
                 }
                 return i;
@@ -506,10 +534,20 @@
                 if (list[i]?.value === ':') i++;
                 let typeToken = list[i++];
                 let type = typeToken?.value.toLowerCase();
-                if (list[i]?.value === '(') i++;
+                
+                if (!list[i] || list[i].value !== '(') {
+                    this.reportError('Expected "(" after new:Type', list[i] || newToken);
+                    return i;
+                } 
+                i++;
                 let nameToken = list[i++];
                 let name = nameToken?.content;
-                if (list[i]?.value === ')') i++;
+                
+                if (!list[i] || list[i].value !== ')') {
+                    this.reportError('Expected ")" after name', list[i] || newToken);
+                    return i;
+                }
+                i++;
 
                 if (['string', 'int', 'boolean'].includes(type)) {
                     if (list[i]?.value === '=') i++;
@@ -517,21 +555,28 @@
                     while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.') expr.push(list[i++]);
                     variables[name] = evaluateExpression(expr);
                 } else {
-                    // Default to Square shape for Box
-                    let shape = "Square";
-                    if (type === "circle") shape = "Circle";
-                    if (type === "triangle") shape = "Triangle";
-                    objects.push({ type: 'object', shape, x: 0, y: 0, w: 40, h: 40, color: 'white', name, value: "", size: 24, sprite: null });
+                    objects.push({ type: 'object', shape: "Square", x: 0, y: 0, w: 40, h: 40, color: 'white', name, value: "", size: 24, sprite: null });
                 }
                 return i;
             }
 
             handlePrint(list, i) {
-                i++; if (list[i]?.value === '(') i++;
+                const printToken = list[i];
+                i++; 
+                if (!list[i] || list[i].value !== '(') {
+                    this.reportError('Expected "(" in print()', list[i] || printToken);
+                    return i;
+                }
+                i++;
                 let expr = [];
                 while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
-                log(String(evaluateExpression(expr)), 'print');
-                if (list[i]?.value === ')') i++;
+                
+                if (!list[i] || list[i].value !== ')') {
+                    this.reportError('Expected ")" in print()', list[i] || printToken);
+                } else {
+                    log(String(evaluateExpression(expr)), 'print');
+                    i++;
+                }
                 return i;
             }
 
@@ -540,19 +585,29 @@
                 while (this.pos < this.tokens.length) {
                     const t = this.tokens[this.pos];
                     if (t.value.toLowerCase() === 'forever') {
-                        this.pos++; if (this.tokens[this.pos]?.value === ',') this.pos++;
+                        const fToken = t;
+                        this.pos++; 
+                        if (!this.tokens[this.pos] || this.tokens[this.pos].value !== ',') {
+                             this.reportError('Expected "," after Forever', this.tokens[this.pos] || fToken);
+                        } else {
+                            this.pos++;
+                        }
                         let blockEnd = this.findDotBlockEnd(this.tokens, this.pos);
                         if (blockEnd !== -1) {
                             this.foreverBlocks.push({ tokens: this.tokens.slice(this.pos, blockEnd), isExecuting: false });
                             this.pos = blockEnd + 1;
-                        } else this.pos++;
-                    } else {
-                        let inst = [];
-                        while (this.pos < this.tokens.length) {
-                            if (this.tokens[this.pos].value.toLowerCase() === 'forever') break;
-                            inst.push(this.tokens[this.pos++]);
+                        } else {
+                            this.reportError('Missing "." terminator for Forever block', this.tokens[this.tokens.length-1]);
+                            this.pos++;
                         }
-                        await this.execute(inst, true);
+                    } else {
+                        let currentInst = [];
+                        while (this.pos < this.tokens.length) {
+                            const v = this.tokens[this.pos].value.toLowerCase();
+                            if (v === 'forever') break;
+                            currentInst.push(this.tokens[this.pos++]);
+                        }
+                        await this.execute(currentInst, true);
                     }
                 }
             }
@@ -575,42 +630,23 @@
             objects.forEach(obj => {
                 if (obj.sprite) {
                     const img = assetCache.get(obj.sprite);
-                    if (img && img.complete) {
-                        ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
-                        return;
-                    }
+                    if (img && img.complete) { ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h); return; }
                 }
-
                 ctx.fillStyle = obj.color || 'white';
                 const s = (obj.shape || "Square").toLowerCase();
-                
-                if (s === "circle") {
-                    ctx.beginPath();
-                    ctx.arc(obj.x + obj.w / 2, obj.y + obj.h / 2, obj.w / 2, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (s === "triangle") {
-                    ctx.beginPath();
-                    ctx.moveTo(obj.x + obj.w / 2, obj.y);
-                    ctx.lineTo(obj.x, obj.y + obj.h);
-                    ctx.lineTo(obj.x + obj.w, obj.y + obj.h);
-                    ctx.closePath();
-                    ctx.fill();
-                } else if (obj.type === 'text') {
-                    ctx.font = `${obj.size || 24}px 'Fira Code', monospace`;
+                if (s === "circle") { ctx.beginPath(); ctx.arc(obj.x + obj.w / 2, obj.y + obj.h / 2, obj.w / 2, 0, Math.PI * 2); ctx.fill(); }
+                else if (s === "triangle") { ctx.beginPath(); ctx.moveTo(obj.x + obj.w / 2, obj.y); ctx.lineTo(obj.x, obj.y + obj.h); ctx.lineTo(obj.x + obj.w, obj.y + obj.h); ctx.closePath(); ctx.fill(); }
+                else if (obj.type === 'text') {
+                    ctx.font = `${obj.size}px 'Fira Code', monospace`;
                     ctx.textBaseline = 'top';
                     ctx.fillText(obj.value || "", obj.x, obj.y);
-                } else {
-                    ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
-                }
+                } else ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
             });
         }
 
         function runCode() {
-            running = false; 
-            cancelAnimationFrame(animationFrame);
-            clearConsole();
-            objects = [];
-            variables = {};
+            running = false; cancelAnimationFrame(animationFrame);
+            clearConsole(); objects = []; variables = {};
             statusDot.classList.replace('bg-indigo-500', 'bg-slate-600');
             const allTokens = [];
             files.forEach(f => allTokens.push(...lex(f.content, f.name)));
@@ -618,7 +654,7 @@
             running = true;
             updateLoop();
             globalInterpreter.run().then(() => {
-                log(`Environment Initialized.`, "info");
+                log(`Scene loaded. Objects: ${objects.length}`, "info");
                 statusDot.classList.replace('bg-slate-600', 'bg-indigo-500');
             });
         }

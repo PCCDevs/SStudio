@@ -13,6 +13,11 @@
         .app-container { height: 100vh; display: flex; flex-direction: column; }
         .main-content { flex: 1; display: grid; grid-template-columns: 200px 1fr 450px; gap: 1rem; padding: 1rem; overflow: hidden; }
         
+        .sidebar { background: #1e293b; border-radius: 12px; border: 1px solid #334155; display: flex; flex-direction: column; overflow: hidden; }
+        .file-item { padding: 8px 16px; font-size: 12px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.2s; }
+        .file-item:hover { background: #334155; }
+        .file-item.active { background: #334155; border-left-color: #6366f1; color: white; font-weight: bold; }
+
         .editor-container { 
             position: relative; 
             background: #1e293b; 
@@ -64,7 +69,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">SStudio</h1>
-                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">S# Language Core v2.0.10 (Error Reporting)</p>
+                    <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">S# Language Core v2.4</p>
                 </div>
             </div>
             
@@ -122,8 +127,8 @@
         const statusDot = document.getElementById('status-dot');
         
         let files = [
-            { name: "Main.s#", content: '--// Main Script //--\nprint("Initializing...")\n\nnew:Box("sky") in "canvas"\nsky.Color = "#0f172a"\nsky.Position = 0;0\nsky.Size = 800;600\n\nnew:Box("hero") in "canvas"\nhero.Color = "#6366f1"\nhero.Position = 380;280\nhero.Size = 40;40\n\nnew:Box("goal") in "canvas"\ngoal.Color = "#f43f5e"\ngoal.Size = 40;40\ngoal.Position = 120;120\n\nprint("Objects Initialized.")' },
-            { name: "Logic.s#", content: '--// Logic Script //--\nrequire("hero")\nrequire("goal")\nprint("Logic Active.")\n\nForever,\n    If Client:Input:Key(W) pressed, hero.Y =- 5 .\n    If Client:Input:Key(S) pressed, hero.Y =+ 5 .\n    If Client:Input:Key(A) pressed, hero.X =- 5 .\n    If Client:Input:Key(D) pressed, hero.X =+ 5 .\n\n    If hero:Hit("goal"), \n        print("Goal reached!")\n        --// Relocate hero to avoid "wait" lag //--\n        hero.Position = 380;280\n        wait(500)\n    .\n.' }
+            { name: "Main.s#", content: '--// Sound Test //--\nprint("Initializing...")\n\nnew:Box("sky") in "canvas"\nsky.Color = "#0f172a"\nsky.Position = 0;0\nsky.Size = 800;600\n\nnew:Box("hero") in "canvas"\nhero.Sprite = Import:Link("https://api.dicebear.com/7.x/bottts/svg?seed=Hero")\nhero.Position = 380;280\nhero.Size = 64;64\n\nnew:Box("ghost") in "canvas"\nghost.Color = "#ffffff"\nghost.Position = 100;100\nghost.Transparency = 0.5\n\nprint("Ready. Move with WASD.")' },
+            { name: "Logic.s#", content: '--// Logic Script //--\nrequire("hero")\nrequire("ghost")\n\nForever,\n    If Client:Input:Key(W) pressed, hero.Y =- 5 .\n    If Client:Input:Key(S) pressed, hero.Y =+ 5 .\n    If Client:Input:Key(A) pressed, hero.X =- 5 .\n    If Client:Input:Key(D) pressed, hero.X =+ 5 .\n\n    If hero:Hit("ghost"), \n        print("Ghost vanished!")\n        Audio:Play("https://actions.google.com/sounds/v1/science_fiction/glitch_low_power.ogg")\n        destroy("ghost")\n    .\n.' }
         ];
         let currentFileIdx = 0;
 
@@ -135,6 +140,7 @@
         let globalInterpreter;
 
         const assetCache = new Map();
+        const audioCache = new Map();
 
         function renderFileList() {
             const list = document.getElementById('file-list');
@@ -173,8 +179,8 @@
         function updateHighlighting() {
             let text = editor.value;
             let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            html = html.replace(/\b(new|in|If|Forever|Repeat|times|print|wait|require|Value|True|False|pressed|released|Once|Import|Link|Shape)\b/gi, '<span class="token-keyword">$1</span>')
-                       .replace(/\b(Client|Input|Key|Cursor|Hit|Text|Box|Triangle|Circle|Object)\b/gi, '<span class="token-keyword" style="color:#f472b6">$1</span>')
+            html = html.replace(/\b(new|in|If|Forever|Repeat|times|print|wait|require|destroy|Value|True|False|pressed|released|Once|Import|Link|Shape|Audio|Play)\b/gi, '<span class="token-keyword">$1</span>')
+                       .replace(/\b(Client|Input|Key|Cursor|Hit|Text|Box|Triangle|Circle|Object|Sprite|Transparency)\b/gi, '<span class="token-keyword" style="color:#f472b6">$1</span>')
                        .replace(/\b(String|Int|Boolean)\b/g, '<span class="token-keyword" style="color:#38bdf8">$1</span>')
                        .replace(/"([^"]*)"/g, '<span class="token-string">"$1"</span>')
                        .replace(/\b(\d+(\.\d+)?)\b/g, '<span class="token-number">$1</span>')
@@ -209,7 +215,7 @@
             const lines = input.split('\n');
             const patterns = [
                 { type: 'COMMENT', reg: /^--\/\/.*?\/\/--/ },
-                { type: 'KEYWORD', reg: /^(new|in|If|Forever|Repeat|times|print|wait|require|Value|True|False|String|Int|Boolean|pressed|released|Client|Input|Key|Cursor|Hit|Text|Box|Object|Circle|Triangle|Once|Import|Link|Shape)/i },
+                { type: 'KEYWORD', reg: /^(new|in|If|Forever|Repeat|times|print|wait|require|destroy|Value|True|False|String|Int|Boolean|pressed|released|Client|Input|Key|Cursor|Hit|Text|Box|Object|Circle|Triangle|Once|Import|Link|Shape|Sprite|Transparency|Audio|Play)/i },
                 { type: 'OPERATOR', reg: /^(=[+\-*/]|==|=|[+\-*/])/ },
                 { type: 'SYMBOL', reg: /^[:.,();]/ },
                 { type: 'STRING', reg: /^"([^"]*)"/ },
@@ -254,6 +260,7 @@
                     if (prop === 'value') return obj.value;
                     if (prop === 'size') return obj.size;
                     if (prop === 'shape') return obj.shape;
+                    if (prop === 'transparency') return obj.transparency;
                 }
             }
             return val;
@@ -262,10 +269,21 @@
         function evaluateExpression(tokens) {
             if (!tokens || tokens.length === 0) return "";
             const raw = tokens.map(t => t.value).join('');
+            
             if (raw.toLowerCase().includes('import:link')) {
                 const linkMatch = raw.match(/Link\("?([^")]*)"?\)/i);
-                if (linkMatch) return linkMatch[1];
+                if (linkMatch) {
+                    const url = linkMatch[1];
+                    if (!assetCache.has(url)) {
+                        const img = new Image();
+                        img.crossOrigin = "anonymous";
+                        img.src = url;
+                        assetCache.set(url, img);
+                    }
+                    return url;
+                }
             }
+
             if (raw.includes(';') && !/[+\-*/]/.test(raw)) {
                 return raw.split(';').map(p => resolveValue(p)).join(';');
             }
@@ -292,43 +310,40 @@
         class Interpreter {
             constructor(tokens) { 
                 this.tokens = tokens; 
-                this.pos = 0; 
                 this.foreverBlocks = []; 
-                this.pauseUntil = 0;
                 this.onceMap = new Map();
             }
 
-            reportError(msg, token) {
-                const file = token?.file || "unknown";
-                const line = token?.line || "?";
-                let got = token?.value;
-                if (got === 'EOL') got = 'end of line';
-                if (!got) got = 'end of file';
-                log(`ERROR: ${msg} but got ${got}. Line ${line} in script "${file}"`, 'error');
-            }
-            
-            async execute(tokenList, conditionMet = false) {
-                let i = 0;
+            async executeInstructions(tokenList, context) {
+                if (Date.now() < context.pauseUntil) return;
+                let i = context.ip || 0;
                 while (i < tokenList.length) {
                     if (!running) return;
-                    if (Date.now() < this.pauseUntil) {
-                        await new Promise(r => setTimeout(r, 16));
-                        continue; 
-                    }
                     const t = tokenList[i];
                     if (!t || t.type === 'EOL') { i++; continue; }
                     const val = t.value.toLowerCase();
 
                     if (val === 'new') i = this.handleNew(tokenList, i);
                     else if (val === 'print') i = this.handlePrint(tokenList, i);
-                    else if (val === 'wait') i = this.handleWait(tokenList, i);
-                    else if (val === 'require') i = await this.handleRequire(tokenList, i);
-                    else if (val === 'if') i = await this.handleIf(tokenList, i);
-                    else if (val === 'once') i = await this.handleOnce(tokenList, i, conditionMet);
-                    else if (val === 'repeat') i = await this.handleRepeat(tokenList, i);
+                    else if (val === 'destroy') i = this.handleDestroy(tokenList, i);
+                    else if (val === 'audio') i = this.handleAudio(tokenList, i);
+                    else if (val === 'wait') {
+                        i = this.handleWait(tokenList, i, context);
+                        context.ip = i;
+                        return;
+                    }
+                    else if (val === 'require') {
+                        let res = await this.handleRequire(tokenList, i);
+                        if (res === i) { context.ip = i; return; }
+                        i = res;
+                    }
+                    else if (val === 'if') i = await this.handleIf(tokenList, i, context);
+                    else if (val === 'once') i = await this.handleOnce(tokenList, i, context);
+                    else if (val === 'repeat') i = await this.handleRepeat(tokenList, i, context);
                     else if (t.type === 'IDENTIFIER' && tokenList[i+1]?.type === 'OPERATOR') i = this.handleAssignment(tokenList, i);
                     else i++;
                 }
+                context.ip = 0;
             }
 
             findBlockEnd(list, startIdx, open = '(', close = ')') {
@@ -336,10 +351,7 @@
                 for (let j = startIdx; j < list.length; j++) {
                     const v = list[j].value;
                     if (v === open) depth++;
-                    if (v === close) {
-                        if (depth === 0) return j;
-                        depth--;
-                    }
+                    if (v === close) { if (depth === 0) return j; depth--; }
                 }
                 return -1;
             }
@@ -349,114 +361,75 @@
                 for (let j = startIdx; j < list.length; j++) {
                     const v = list[j].value.toLowerCase();
                     if (['if', 'repeat', 'forever'].includes(v)) depth++;
-                    if (v === '.') {
-                        if (depth === 0) return j;
-                        depth--;
-                    }
+                    if (v === '.') { if (depth === 0) return j; depth--; }
                 }
                 return -1;
             }
 
-            async handleOnce(list, i, conditionMet) {
+            async handleOnce(list, i, context) {
                 const onceToken = list[i];
                 const onceId = `once_${onceToken.line}_${i}`;
                 let next = i + 1;
-                
-                if (!list[next] || list[next].value !== '(') {
-                    this.reportError('Expected "(" in Once()', list[next] || { ...onceToken, value: null });
-                    return i + 1;
-                }
+                if (!list[next] || list[next].value !== '(') return i + 1;
                 next++;
-                
                 let blockEnd = this.findBlockEnd(list, next, '(', ')');
-                if (blockEnd === -1) {
-                    this.reportError('Expected ")" to close Once()', list[list.length-1]);
-                    return i + 1;
-                }
-
+                if (blockEnd === -1) return i + 1;
                 const body = list.slice(next, blockEnd);
-                if (conditionMet) {
-                    if (!this.onceMap.get(onceId)) {
-                        this.onceMap.set(onceId, true);
-                        await this.execute(body, true);
-                    }
-                } else this.onceMap.set(onceId, false);
+                if (context.conditionMet && !this.onceMap.get(onceId)) {
+                    this.onceMap.set(onceId, true);
+                    await this.executeInstructions(body, { ...context, conditionMet: true, pauseUntil: 0, ip: 0 });
+                } else if (!context.conditionMet) {
+                    this.onceMap.set(onceId, false);
+                }
                 return blockEnd + 1;
             }
 
             async handleRequire(list, i) {
-                const reqToken = list[i];
-                i++; 
-                if (!list[i] || list[i].value !== '(') {
-                    this.reportError('Expected "(" in require()', list[i] || reqToken);
-                    return i;
-                }
-                i++;
-                let targetNameToken = list[i++];
-                if (!targetNameToken || targetNameToken.type !== 'STRING') {
-                     this.reportError('Expected string name in require()', targetNameToken || list[i]);
-                     return i;
-                }
-                let targetName = targetNameToken.content;
-                if (!list[i] || list[i].value !== ')') {
-                    this.reportError('Expected ")" in require()', list[i] || reqToken);
-                    return i;
-                }
-                i++;
-
-                while (!objects.some(o => o.name === targetName)) {
-                    if (!running) return i;
-                    await new Promise(r => setTimeout(r, 50));
-                }
-                return i;
+                let next = i + 1;
+                if (list[next]?.value === '(') next++;
+                let name = list[next]?.content;
+                if (objects.some(o => o.name === name)) return i + 4;
+                return i; 
             }
 
-            async handleRepeat(list, i) {
+            async handleRepeat(list, i, context) {
                 const repeatToken = list[i++];
                 let countTokens = [];
                 while (list[i] && list[i].value.toLowerCase() !== 'times' && list[i].value !== ',') countTokens.push(list[i++]);
-                
-                if (!list[i] || list[i].value.toLowerCase() !== 'times') {
-                     this.reportError('Expected keyword "times"', list[i] || repeatToken);
-                } else i++;
-
+                if (list[i]?.value.toLowerCase() === 'times') i++;
                 let count = parseInt(evaluateExpression(countTokens)) || 0;
                 if (list[i]?.value === ',') i++;
-                
                 let blockEnd = this.findDotBlockEnd(list, i);
                 if (blockEnd !== -1) {
                     const body = list.slice(i, blockEnd);
-                    for (let n = 0; n < count; n++) await this.execute(body, true);
+                    for (let n = 0; n < count; n++) await this.executeInstructions(body, { ...context, pauseUntil: 0, ip: 0 });
                     return blockEnd + 1;
-                } else {
-                    this.reportError('Missing "." terminator for Repeat block', list[list.length-1]);
                 }
                 return i;
             }
 
-            async handleIf(list, i) {
+            async handleIf(list, i, context) {
+                const startPos = i;
                 const ifToken = list[i++];
                 let conditionTokens = [];
                 while (list[i] && list[i].value !== ',') conditionTokens.push(list[i++]);
-                
-                if (!list[i] || list[i].value !== ',') {
-                    this.reportError('Expected "," after condition', list[i] || ifToken);
-                    return i;
-                }
-                i++;
-
+                if (list[i]?.value === ',') i++;
                 let blockEnd = this.findDotBlockEnd(list, i);
-                if (blockEnd === -1) {
-                    this.reportError('Missing "." terminator for If block', list[list.length-1]);
-                    return i;
+                if (blockEnd === -1) return i;
+
+                if (!context.ifContexts) context.ifContexts = new Map();
+                if (!context.ifContexts.has(startPos)) {
+                    context.ifContexts.set(startPos, { conditionMet: false, pauseUntil: 0, ip: 0 });
                 }
+                let subCtx = context.ifContexts.get(startPos);
 
                 let condStr = conditionTokens.map(t => t.value).join('');
                 let ok = false;
                 if (condStr.includes(':Hit')) {
-                    let parts = condStr.split(':Hit');
-                    let a = objects.find(o => o.name === parts[0]);
-                    let bName = parts[1].replace(/[()]/g, '').replace(/"/g, '');
+                    let [objName, hitPart] = condStr.split(':Hit');
+                    let a = objects.find(o => o.name === objName);
+                    let bMatch = hitPart.match(/"([^"]*)"/);
+                    let bName = bMatch ? bMatch[1] : hitPart.replace(/[()]/g, '');
                     let b = objects.find(o => o.name === bName);
                     if (a && b) {
                         let hit = (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
@@ -468,29 +441,56 @@
                 }
 
                 const body = list.slice(i, blockEnd);
-                if (ok) await this.execute(body, true);
-                else {
-                    for (let j = 0; j < body.length; j++) if (body[j].value.toLowerCase() === 'once') await this.handleOnce(body, j, false);
+                if (subCtx.ip > 0 || Date.now() < subCtx.pauseUntil) {
+                    await this.executeInstructions(body, subCtx);
+                } else if (ok) {
+                    subCtx.conditionMet = true;
+                    await this.executeInstructions(body, subCtx);
+                } else {
+                    subCtx.conditionMet = false;
+                    subCtx.ip = 0;
+                    for (let j = 0; j < body.length; j++) {
+                        if (body[j].value.toLowerCase() === 'once') await this.handleOnce(body, j, subCtx);
+                    }
                 }
                 return blockEnd + 1;
             }
 
-            handleWait(list, i) {
-                const waitToken = list[i++];
-                if (!list[i] || list[i].value !== '(') {
-                    this.reportError('Expected "(" in wait()', list[i] || waitToken);
-                    return i;
-                }
-                i++;
-                let expr = [];
-                while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
-                
-                if (!list[i] || list[i].value !== ')') {
-                    this.reportError('Expected ")" in wait()', list[i] || waitToken);
-                } else i++;
-
+            handleWait(list, i, context) {
+                i++; if (list[i]?.value === '(') i++;
+                let expr = []; while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
                 let ms = parseFloat(evaluateExpression(expr)) || 0;
-                this.pauseUntil = Date.now() + ms;
+                context.pauseUntil = Date.now() + ms;
+                if (list[i]?.value === ')') i++;
+                return i;
+            }
+
+            handleDestroy(list, i) {
+                i++; if (list[i]?.value === '(') i++;
+                let expr = []; while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
+                let name = String(evaluateExpression(expr)).replace(/"/g, '');
+                objects = objects.filter(o => o.name !== name);
+                if (list[i]?.value === ')') i++;
+                return i;
+            }
+
+            handleAudio(list, i) {
+                i++; if (list[i]?.value === ':') i++;
+                let action = list[i++]?.value.toLowerCase();
+                if (list[i]?.value === '(') i++;
+                let expr = []; while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
+                let url = String(evaluateExpression(expr)).replace(/"/g, '');
+                
+                if (action === 'play') {
+                    let audio = audioCache.get(url);
+                    if (!audio) {
+                        audio = new Audio(url);
+                        audioCache.set(url, audio);
+                    }
+                    audio.currentTime = 0;
+                    audio.play().catch(e => log("Audio play failed: Check URL or user interaction", "error"));
+                }
+                if (list[i]?.value === ')') i++;
                 return i;
             }
 
@@ -499,7 +499,7 @@
                 let opToken = list[i++];
                 let op = opToken.value;
                 let exprTokens = [];
-                while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.' && list[i].value !== ')') exprTokens.push(list[i++]);
+                while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.') exprTokens.push(list[i++]);
                 let val = evaluateExpression(exprTokens);
                 
                 if (target.includes('.')) {
@@ -509,17 +509,19 @@
                         const p = prop.toLowerCase();
                         if (p === 'color') obj.color = String(val).replace(/"/g,'');
                         else if (p === 'value') obj.value = String(val);
-                        else if (p === 'position' || p === 'size') {
+                        else if (p === 'sprite') obj.sprite = String(val).replace(/"/g,'');
+                        else if (p === 'transparency') obj.transparency = Math.max(0, Math.min(1, parseFloat(val) || 0));
+                        else if (p === 'position') {
                             let parts = String(val).split(';');
-                            if (p === 'position') { obj.x = parseFloat(parts[0]); obj.y = parseFloat(parts[1]); }
-                            else { obj.w = parseFloat(parts[0]); obj.h = parseFloat(parts[1]); }
+                            obj.x = parseFloat(parts[0]); obj.y = parseFloat(parts[1]);
+                        } else if (p === 'size') {
+                            let parts = String(val).split(';');
+                            obj.w = parseFloat(parts[0]); obj.h = parseFloat(parts[1]);
                         } else if (p === 'x' || p === 'y') {
                             let num = parseFloat(val) || 0;
-                            if (op === '=+') obj[p] += num;
-                            else if (op === '=-') obj[p] -= num;
-                            else obj[p] = num;
+                            if (op === '=+') obj[p] += num; else if (op === '=-') obj[p] -= num; else obj[p] = num;
                         } else if (p === 'shape') obj.shape = String(val).replace(/"/g,'');
-                    } else this.reportError(`Object "${name}" not found`, opToken);
+                    }
                 } else {
                     let num = parseFloat(val) || 0;
                     if (op === '=+') variables[target] = (Number(variables[target]) || 0) + num;
@@ -530,84 +532,45 @@
             }
 
             handleNew(list, i) {
-                const newToken = list[i++];
-                if (list[i]?.value === ':') i++;
-                let typeToken = list[i++];
-                let type = typeToken?.value.toLowerCase();
-                
-                if (!list[i] || list[i].value !== '(') {
-                    this.reportError('Expected "(" after new:Type', list[i] || newToken);
-                    return i;
-                } 
-                i++;
-                let nameToken = list[i++];
-                let name = nameToken?.content;
-                
-                if (!list[i] || list[i].value !== ')') {
-                    this.reportError('Expected ")" after name', list[i] || newToken);
-                    return i;
-                }
-                i++;
+                i++; if (list[i]?.value === ':') i++;
+                let type = list[i++]?.value.toLowerCase();
+                if (list[i]?.value === '(') i++;
+                let name = list[i++]?.content;
+                if (list[i]?.value === ')') i++;
 
                 if (['string', 'int', 'boolean'].includes(type)) {
                     if (list[i]?.value === '=') i++;
-                    let expr = [];
-                    while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.') expr.push(list[i++]);
+                    let expr = []; while (list[i] && list[i].type !== 'EOL' && list[i].value !== '.') expr.push(list[i++]);
                     variables[name] = evaluateExpression(expr);
                 } else {
-                    objects.push({ type: 'object', shape: "Square", x: 0, y: 0, w: 40, h: 40, color: 'white', name, value: "", size: 24, sprite: null });
+                    objects.push({ type: 'object', shape: "Square", x: 0, y: 0, w: 40, h: 40, color: 'white', name, value: "", size: 24, sprite: null, transparency: 0 });
                 }
                 return i;
             }
 
             handlePrint(list, i) {
-                const printToken = list[i];
-                i++; 
-                if (!list[i] || list[i].value !== '(') {
-                    this.reportError('Expected "(" in print()', list[i] || printToken);
-                    return i;
-                }
-                i++;
-                let expr = [];
-                while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
-                
-                if (!list[i] || list[i].value !== ')') {
-                    this.reportError('Expected ")" in print()', list[i] || printToken);
-                } else {
-                    log(String(evaluateExpression(expr)), 'print');
-                    i++;
-                }
+                i++; if (list[i]?.value === '(') i++;
+                let expr = []; while (list[i] && list[i].value !== ')' && list[i].type !== 'EOL') expr.push(list[i++]);
+                log(String(evaluateExpression(expr)), 'print');
+                if (list[i]?.value === ')') i++;
                 return i;
             }
 
             async run() {
-                objects = []; variables = {}; this.pos = 0;
-                while (this.pos < this.tokens.length) {
-                    const t = this.tokens[this.pos];
+                objects = []; variables = {}; let pos = 0;
+                while (pos < this.tokens.length) {
+                    const t = this.tokens[pos];
                     if (t.value.toLowerCase() === 'forever') {
-                        const fToken = t;
-                        this.pos++; 
-                        if (!this.tokens[this.pos] || this.tokens[this.pos].value !== ',') {
-                             this.reportError('Expected "," after Forever', this.tokens[this.pos] || fToken);
-                        } else {
-                            this.pos++;
-                        }
-                        let blockEnd = this.findDotBlockEnd(this.tokens, this.pos);
+                        pos++; if (this.tokens[pos]?.value === ',') pos++;
+                        let blockEnd = this.findDotBlockEnd(this.tokens, pos);
                         if (blockEnd !== -1) {
-                            this.foreverBlocks.push({ tokens: this.tokens.slice(this.pos, blockEnd), isExecuting: false });
-                            this.pos = blockEnd + 1;
-                        } else {
-                            this.reportError('Missing "." terminator for Forever block', this.tokens[this.tokens.length-1]);
-                            this.pos++;
-                        }
+                            this.foreverBlocks.push({ tokens: this.tokens.slice(pos, blockEnd), context: { conditionMet: true, pauseUntil: 0, ip: 0 }});
+                            pos = blockEnd + 1;
+                        } else pos++;
                     } else {
                         let currentInst = [];
-                        while (this.pos < this.tokens.length) {
-                            const v = this.tokens[this.pos].value.toLowerCase();
-                            if (v === 'forever') break;
-                            currentInst.push(this.tokens[this.pos++]);
-                        }
-                        await this.execute(currentInst, true);
+                        while (pos < this.tokens.length && this.tokens[pos].value.toLowerCase() !== 'forever') currentInst.push(this.tokens[pos++]);
+                        await this.executeInstructions(currentInst, { conditionMet: true, pauseUntil: 0, ip: 0 });
                     }
                 }
             }
@@ -615,12 +578,7 @@
 
         function updateLoop() {
             if (!running) return;
-            for (let block of globalInterpreter.foreverBlocks) {
-                if (!block.isExecuting) {
-                    block.isExecuting = true;
-                    globalInterpreter.execute(block.tokens, true).finally(() => { block.isExecuting = false; });
-                }
-            }
+            for (let block of globalInterpreter.foreverBlocks) globalInterpreter.executeInstructions(block.tokens, block.context);
             draw();
             animationFrame = requestAnimationFrame(updateLoop);
         }
@@ -628,33 +586,38 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             objects.forEach(obj => {
-                if (obj.sprite) {
+                ctx.save();
+                ctx.globalAlpha = 1 - (obj.transparency || 0);
+                
+                if (obj.sprite && assetCache.has(obj.sprite)) {
                     const img = assetCache.get(obj.sprite);
-                    if (img && img.complete) { ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h); return; }
+                    if (img.complete) {
+                        ctx.drawImage(img, obj.x, obj.y, obj.w, obj.h);
+                        ctx.restore();
+                        return;
+                    }
                 }
+                
                 ctx.fillStyle = obj.color || 'white';
                 const s = (obj.shape || "Square").toLowerCase();
                 if (s === "circle") { ctx.beginPath(); ctx.arc(obj.x + obj.w / 2, obj.y + obj.h / 2, obj.w / 2, 0, Math.PI * 2); ctx.fill(); }
                 else if (s === "triangle") { ctx.beginPath(); ctx.moveTo(obj.x + obj.w / 2, obj.y); ctx.lineTo(obj.x, obj.y + obj.h); ctx.lineTo(obj.x + obj.w, obj.y + obj.h); ctx.closePath(); ctx.fill(); }
-                else if (obj.type === 'text') {
-                    ctx.font = `${obj.size}px 'Fira Code', monospace`;
-                    ctx.textBaseline = 'top';
-                    ctx.fillText(obj.value || "", obj.x, obj.y);
-                } else ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                else ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                
+                ctx.restore();
             });
         }
 
         function runCode() {
-            running = false; cancelAnimationFrame(animationFrame);
-            clearConsole(); objects = []; variables = {};
+            running = false; cancelAnimationFrame(animationFrame); clearConsole(); objects = []; variables = {};
+            // Clean up old audio
+            audioCache.forEach(a => { a.pause(); a.currentTime = 0; });
             statusDot.classList.replace('bg-indigo-500', 'bg-slate-600');
-            const allTokens = [];
-            files.forEach(f => allTokens.push(...lex(f.content, f.name)));
+            const allTokens = []; files.forEach(f => allTokens.push(...lex(f.content, f.name)));
             globalInterpreter = new Interpreter(allTokens);
-            running = true;
-            updateLoop();
+            running = true; updateLoop();
             globalInterpreter.run().then(() => {
-                log(`Scene loaded. Objects: ${objects.length}`, "info");
+                log(`Scene loaded.`, "info");
                 statusDot.classList.replace('bg-slate-600', 'bg-indigo-500');
             });
         }
